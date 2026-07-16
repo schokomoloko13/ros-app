@@ -28,20 +28,22 @@ function Sparkline({ data, color }: { data: number[]; color: string }) {
 }
 
 // ─── KPI Card ─────────────────────────────────────────────────────────────────
-function KpiCard({ label, value, sub, sparkData, sparkColor }: {
-  label: string; value: string; sub?: string; sparkData: number[]; sparkColor: string
+function KpiCard({ label, value, sub, sparkData, sparkColor, href }: {
+  label: string; value: string; sub?: string; sparkData: number[]; sparkColor: string; href: string
 }) {
   return (
-    <div className="kpi-card">
-      <div style={{ fontSize: '0.65rem', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '4px' }}>{label}</div>
-      <div className="kpi-value">{value}</div>
-      {sub && (
-        <div style={{ fontSize: '0.7rem', marginTop: '2px', color: sparkColor === '#ef4444' ? '#ef4444' : sparkColor === '#22c55e' ? '#22c55e' : '#64748b' }}>
-          {sub}
-        </div>
-      )}
-      <Sparkline data={sparkData} color={sparkColor} />
-    </div>
+    <Link href={href} style={{ textDecoration: 'none', display: 'block' }}>
+      <div className="kpi-card" style={{ cursor: 'pointer' }}>
+        <div style={{ fontSize: '0.65rem', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '4px' }}>{label}</div>
+        <div className="kpi-value">{value}</div>
+        {sub && (
+          <div style={{ fontSize: '0.7rem', marginTop: '2px', color: sparkColor === '#ef4444' ? '#ef4444' : sparkColor === '#22c55e' ? '#22c55e' : '#64748b' }}>
+            {sub}
+          </div>
+        )}
+        <Sparkline data={sparkData} color={sparkColor} />
+      </div>
+    </Link>
   )
 }
 
@@ -69,16 +71,17 @@ function AlertBadge({ type }: { type: string }) {
 }
 
 // ─── Platform Node ────────────────────────────────────────────────────────────
-function PlatformNode({ name, platform, chats, views, listed, online }: {
-  name: string; platform: 'ka' | 'vinted'; chats: number; views: number; listed: number; online: boolean
+function PlatformNode({ name, platform, chats, views, listed, online, accountKey }: {
+  name: string; platform: 'ka' | 'vinted'; chats: number; views: number; listed: number; online: boolean; accountKey: string
 }) {
   const accentColor = platform === 'ka' ? '#f97316' : '#22c55e'
   const platformLabel = platform === 'ka' ? 'Kleinanzeigen' : 'Vinted'
 
   return (
+    <Link href={`/platform/${accountKey}`} style={{ textDecoration: 'none', display: 'block' }}>
     <div
       className="platform-node"
-      style={{ border: `1px solid ${online ? '#1e293b' : '#0f172a'}` }}
+      style={{ border: `1px solid ${online ? '#1e293b' : '#0f172a'}`, cursor: 'pointer' }}
     >
       {/* Top accent line */}
       <div style={{
@@ -121,6 +124,7 @@ function PlatformNode({ name, platform, chats, views, listed, online }: {
         ))}
       </div>
     </div>
+    </Link>
   )
 }
 
@@ -151,8 +155,9 @@ export default async function Dashboard({ searchParams }: { searchParams: Search
   switch (filter) {
     case 'watches':  itemsQuery = itemsQuery.eq('category_id', 'watches'); break
     case 'clothing': itemsQuery = itemsQuery.eq('category_id', 'clothing'); break
-    case 'vintage':  itemsQuery = itemsQuery.eq('category_id', 'vintage'); break
+    case 'other':    itemsQuery = itemsQuery.not('category_id', 'in', '("watches","clothing","vintage")'); break
     case 'unlisted': itemsQuery = itemsQuery.eq('status', 'purchased'); break
+    case 'listed':   itemsQuery = itemsQuery.eq('status', 'listed'); break
     case 'live':     itemsQuery = itemsQuery.eq('status', 'listed'); break
     case 'photo':    itemsQuery = itemsQuery.eq('status', 'checked'); break
     case 'dead':     itemsQuery = itemsQuery.eq('status', 'purchased'); break
@@ -231,19 +236,19 @@ export default async function Dashboard({ searchParams }: { searchParams: Search
 
   const listed = listedCount || 0
   const platformNodes = [
-    { name: 'KA Account 01', platform: 'ka' as const,     chats: 0, views: 0, listed: Math.floor(listed * 0.4), online: true },
-    { name: 'KA Account 02', platform: 'ka' as const,     chats: 0, views: 0, listed: Math.floor(listed * 0.3), online: true },
-    { name: 'KA Account 03', platform: 'ka' as const,     chats: 0, views: 0, listed: Math.floor(listed * 0.2), online: false },
-    { name: 'Vinted',        platform: 'vinted' as const, chats: 0, views: 0, listed: Math.floor(listed * 0.1), online: true },
+    { name: 'KA Account 01', platform: 'ka' as const,     chats: 0, views: 0, listed: Math.floor(listed * 0.4), online: true,  accountKey: 'ka-01' },
+    { name: 'KA Account 02', platform: 'ka' as const,     chats: 0, views: 0, listed: Math.floor(listed * 0.3), online: true,  accountKey: 'ka-02' },
+    { name: 'KA Account 03', platform: 'ka' as const,     chats: 0, views: 0, listed: Math.floor(listed * 0.2), online: false, accountKey: 'ka-03' },
+    { name: 'Vinted',        platform: 'vinted' as const, chats: 0, views: 0, listed: Math.floor(listed * 0.1), online: true,  accountKey: 'vinted' },
   ]
 
   const kpis = [
-    { label: 'Revenue Month',   value: `€${fmt(revenueMonth)}`,   sub: revenueMonth > 0 ? `+€${fmt(revenueMonth)} this mo` : 'no sales yet', sparkData: revSparkPadded, sparkColor: '#22c55e' },
-    { label: 'Net Margin',      value: `${netMargin}%`,            sub: netMargin >= 30 ? '▲ healthy' : netMargin > 0 ? '~ ok' : 'no data',   sparkData: pad7([netMargin]), sparkColor: netMargin >= 30 ? '#22c55e' : netMargin > 0 ? '#06b6d4' : '#ef4444' },
-    { label: 'Inventory Value', value: `€${fmt(inventoryValue)}`,  sub: `${totalItems || 0} items`, sparkData: pad7((inventoryAll || []).slice(-7).map(i => i.purchase_price || 0)), sparkColor: '#06b6d4' },
-    { label: 'Stock Runway',    value: `${stockRunway} mo`,        sub: 'at current burn', sparkData: [3,4,3,5,4,4,3], sparkColor: '#06b6d4' },
-    { label: 'Dead Stock',      value: String(deadStock || 0),     sub: (deadStock||0) > 5 ? '▲ needs action' : 'ok', sparkData: pad7([deadStock||0]), sparkColor: (deadStock||0) > 5 ? '#ef4444' : '#22c55e' },
-    { label: 'Open Chats',      value: '—',                        sub: 'no platform data', sparkData: [1,2,1,3,2,1,0], sparkColor: '#06b6d4' },
+    { label: 'Revenue Month',   value: `€${fmt(revenueMonth)}`,   sub: revenueMonth > 0 ? `+€${fmt(revenueMonth)} this mo` : 'no sales yet', sparkData: revSparkPadded, sparkColor: '#22c55e', href: '/kpis/revenue' },
+    { label: 'Net Margin',      value: `${netMargin}%`,            sub: netMargin >= 30 ? '▲ healthy' : netMargin > 0 ? '~ ok' : 'no data',   sparkData: pad7([netMargin]), sparkColor: netMargin >= 30 ? '#22c55e' : netMargin > 0 ? '#06b6d4' : '#ef4444', href: '/kpis/margin' },
+    { label: 'Inventory Value', value: `€${fmt(inventoryValue)}`,  sub: `${totalItems || 0} items`, sparkData: pad7((inventoryAll || []).slice(-7).map(i => i.purchase_price || 0)), sparkColor: '#06b6d4', href: '/kpis/inventory' },
+    { label: 'Stock Runway',    value: `${stockRunway} mo`,        sub: 'at current burn', sparkData: [3,4,3,5,4,4,3], sparkColor: '#06b6d4', href: '/kpis/runway' },
+    { label: 'Dead Stock',      value: String(deadStock || 0),     sub: (deadStock||0) > 5 ? '▲ needs action' : 'ok', sparkData: pad7([deadStock||0]), sparkColor: (deadStock||0) > 5 ? '#ef4444' : '#22c55e', href: '/kpis/deadstock' },
+    { label: 'Open Chats',      value: '—',                        sub: 'no platform data', sparkData: [1,2,1,3,2,1,0], sparkColor: '#06b6d4', href: '/kpis/chats' },
   ]
 
   return (
@@ -308,7 +313,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Search
                 const initials = (item.name || '?').slice(0, 2).toUpperCase()
                 const primaryImage = imageMap.get(item.id)
                 return (
-                  <div key={item.id} className="item-row">
+                  <Link key={item.id} href={`/items/${item.id}`} style={{ textDecoration: 'none', display: 'block' }}>
+                  <div className="item-row" style={{ cursor: 'pointer' }}>
                     {/* Thumbnail: real image or placeholder */}
                     <div style={{
                       width: '48px', height: '48px', borderRadius: '6px',
@@ -351,6 +357,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Search
                       {STATUS_LABEL[item.status] || item.status}
                     </span>
                   </div>
+                  </Link>
                 )
               })}
             </div>
@@ -371,10 +378,12 @@ export default async function Dashboard({ searchParams }: { searchParams: Search
             <>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 {alerts.map(a => (
-                  <div key={a.id} className="alert-row">
-                    <AlertBadge type={a.type} />
-                    <span style={{ fontSize: '0.75rem', color: '#94a3b8', lineHeight: 1.4 }}>{a.msg}</span>
-                  </div>
+                  <Link key={a.id} href={`/items/${a.id}`} style={{ textDecoration: 'none', display: 'block' }}>
+                    <div className="alert-row" style={{ cursor: 'pointer' }}>
+                      <AlertBadge type={a.type} />
+                      <span style={{ fontSize: '0.75rem', color: '#94a3b8', lineHeight: 1.4 }}>{a.msg}</span>
+                    </div>
+                  </Link>
                 ))}
               </div>
               <div style={{ marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px solid #1e293b', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>

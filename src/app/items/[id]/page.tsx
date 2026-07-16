@@ -3,6 +3,8 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import StatusActions from './StatusActions'
 import AiWearPhotoButton from './AiWearPhotoButton'
+import ImageGallery from './ImageGallery'
+import AiAdvisor from './AiAdvisor'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -111,41 +113,7 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '1.5rem' }}>
         <div>
-          {images && images.length > 0 ? (
-            <div className="panel" style={{ padding: '1rem', marginBottom: '1rem' }}>
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: images.length === 1 ? '1fr' : 'repeat(auto-fill, minmax(160px, 1fr))',
-                gap: '0.5rem',
-              }}>
-                {images.map((img) => (
-                  <div key={img.id} style={{ position: 'relative', aspectRatio: '1', borderRadius: '6px', overflow: 'hidden', border: img.is_primary ? '2px solid #06b6d4' : '1px solid #1e293b' }}>
-                    <img
-                      src={img.url}
-                      alt=""
-                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                      loading="lazy"
-                    />
-                    {img.is_primary && (
-                      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(6,182,212,0.85)', fontSize: '0.55rem', color: '#000', fontWeight: 700, letterSpacing: '0.1em', textAlign: 'center', padding: '0.2rem' }}>
-                        TITELBILD
-                      </div>
-                    )}
-                    {img.is_ai_generated && (
-                      <div style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(168,85,247,0.85)', fontSize: '0.5rem', color: '#fff', fontWeight: 700, letterSpacing: '0.08em', padding: '0.15rem 0.4rem', borderRadius: '3px' }}>
-                        AI
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="panel" style={{ padding: '3rem', textAlign: 'center', marginBottom: '1rem' }}>
-              <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📷</div>
-              <div style={{ fontSize: '0.75rem', color: '#475569' }}>Keine Fotos vorhanden</div>
-            </div>
-          )}
+          <ImageGallery initialImages={images || []} itemId={id} />
 
           <div className="panel" style={{ padding: '1.25rem' }}>
             <h2 style={{ margin: '0 0 1rem', fontSize: '0.85rem', letterSpacing: '0.08em' }}>
@@ -232,6 +200,8 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
               />
             </div>
           )}
+
+          <AiAdvisor itemId={item.id} />
 
           <div className="panel" style={{ padding: '1.25rem', marginBottom: '1rem' }}>
             <h2 style={{ margin: '0 0 1rem', fontSize: '0.85rem', letterSpacing: '0.08em' }}>
