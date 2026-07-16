@@ -55,6 +55,7 @@ function AlertBadge({ type }: { type: string }) {
     alert:      { bg: 'rgba(249,115,22,0.15)',  color: '#f97316', label: 'ALERT' },
     ready:      { bg: 'rgba(34,197,94,0.15)',   color: '#4ade80', label: 'READY' },
     photo:      { bg: 'rgba(59,130,246,0.15)',  color: '#60a5fa', label: 'PHOTO NEEDED' },
+    relist:     { bg: 'rgba(6,182,212,0.15)',   color: '#06b6d4', label: 'RELIST NEEDED' },
   }
   const s = styles[type] || styles.alert
   return (
@@ -181,7 +182,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Search
     supabase.from('items').select('target_price').eq('status', 'sold').order('created_at', { ascending: true }).limit(7),
     supabase.from('items').select('*', { count: 'exact', head: true }).eq('status', 'purchased'),
     supabase.from('items').select('target_price, purchase_price').eq('status', 'sold'),
-    supabase.from('items').select('id, name, status, created_at').order('created_at', { ascending: true }).limit(20),
+    supabase.from('items').select('id, name, status, created_at, listed_at').order('created_at', { ascending: true }).limit(20),
     supabase.from('items').select('*', { count: 'exact', head: true }).eq('status', 'listed'),
   ])
 
@@ -219,7 +220,11 @@ export default async function Dashboard({ searchParams }: { searchParams: Search
     else if (item.status === 'purchased'    && days > 7)  { type = 'urgent';   msg += ` · ${days}d unlisted` }
     else if (item.status === 'checked')                   { type = 'photo';    msg += ' · needs photo shoot' }
     else if (item.status === 'photographed')              { type = 'ai ready'; msg += ' · ready to list' }
-    else if (item.status === 'listed')                    { type = 'ready';    msg += ' · live on platform' }
+    else if (item.status === 'listed') {
+      const listedDays = item.listed_at ? daysSince(item.listed_at) : days
+      if (listedDays > 30) { type = 'relist'; msg += ` · ${listedDays}d listed, relist!` }
+      else                 { type = 'ready';  msg += ' · live on platform' }
+    }
     else                                                  { type = 'alert';    msg += ' · check status' }
     return { id: item.id, type, msg }
   }).slice(0, 10)
@@ -373,7 +378,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Search
                 ))}
               </div>
               <div style={{ marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px solid #1e293b', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                {(['overdue','urgent','photo','ai ready','ready'] as const).map(type => {
+                {(['overdue','urgent','photo','ai ready','ready','relist'] as const).map(type => {
                   const count = alerts.filter(a => a.type === type).length
                   if (!count) return null
                   return (
