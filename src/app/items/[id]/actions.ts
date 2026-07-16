@@ -22,9 +22,26 @@ export async function updateItemStatus(itemId: string, newStatus: string): Promi
   }
 
   const supabase = getAdminClient()
+  
+  // Build update object
+  const updateData: Record<string, any> = {
+    status: newStatus,
+    updated_at: new Date().toISOString(),
+  }
+  
+  // Set listed_at when status becomes "listed"
+  if (newStatus === 'listed') {
+    updateData.listed_at = new Date().toISOString()
+  }
+  
+  // Clear listed_at when status moves away from "listed"
+  if (newStatus !== 'listed') {
+    updateData.listed_at = null
+  }
+
   const { error } = await supabase
     .from('items')
-    .update({ status: newStatus, updated_at: new Date().toISOString() })
+    .update(updateData)
     .eq('id', itemId)
 
   if (error) return { ok: false, error: error.message }

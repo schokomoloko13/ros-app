@@ -18,6 +18,10 @@ const STATUS_CLASS: Record<string, string> = {
 }
 const STATUS_FLOW = ['purchased', 'checked', 'photographed', 'listed', 'sold'] as const
 
+function daysSince(dateStr: string): number {
+  return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86_400_000)
+}
+
 export default async function ItemDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
@@ -54,6 +58,10 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
   const nextStatus = currentStatusIndex < STATUS_FLOW.length - 1 ? STATUS_FLOW[currentStatusIndex + 1] : null
   const prevStatus = currentStatusIndex > 0 ? STATUS_FLOW[currentStatusIndex - 1] : null
 
+  // Check if relist is needed
+  const needsRelist = item.status === 'listed' && item.listed_at && daysSince(item.listed_at) > 30
+  const listedDays = item.listed_at ? daysSince(item.listed_at) : 0
+
   return (
     <div style={{ minHeight: '100vh', padding: '2rem', paddingBottom: '3rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
@@ -84,7 +92,17 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
             </div>
           )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          {needsRelist && (
+            <span style={{
+              background: 'rgba(6,182,212,0.15)', color: '#06b6d4',
+              padding: '0.35rem 1rem', borderRadius: '4px',
+              fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.08em',
+              textTransform: 'uppercase', whiteSpace: 'nowrap',
+            }}>
+              🔄 RELIST NEEDED · {listedDays}d
+            </span>
+          )}
           <span className={`status-badge ${STATUS_CLASS[item.status] || 'status-purchased'}`} style={{ fontSize: '0.75rem', padding: '0.35rem 1rem' }}>
             {STATUS_LABEL[item.status] || item.status}
           </span>
@@ -197,6 +215,24 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
             />
           </div>
 
+          {needsRelist && (
+            <div className="panel" style={{ padding: '1.25rem', marginBottom: '1rem', border: '1px solid #06b6d4' }}>
+              <h2 style={{ margin: '0 0 1rem', fontSize: '0.85rem', letterSpacing: '0.08em' }}>
+                RELIST <span style={{ color: '#1e293b' }}>//</span>{' '}
+                <span style={{ color: '#475569' }}>RENEW</span>
+              </h2>
+              <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '1rem', lineHeight: 1.6 }}>
+                Dieser Artikel ist seit <strong style={{ color: '#06b6d4' }}>{listedDays} Tagen</strong> gelistet. KA/Vinted-Listings verlieren nach 30 Tagen an Sichtbarkeit.
+              </div>
+              <StatusActions
+                itemId={item.id}
+                currentStatus={item.status}
+                nextStatus={'photographed'}
+                prevStatus={null}
+              />
+            </div>
+          )}
+
           <div className="panel" style={{ padding: '1.25rem', marginBottom: '1rem' }}>
             <h2 style={{ margin: '0 0 1rem', fontSize: '0.85rem', letterSpacing: '0.08em' }}>
               KI-FOTO <span style={{ color: '#1e293b' }}>//</span>{' '}
@@ -204,7 +240,7 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
             </h2>
             <AiWearPhotoButton itemId={item.id} />
             <div style={{ fontSize: '0.6rem', color: '#475569', marginTop: '0.5rem', textAlign: 'center' }}>
-              ~$0.04 pro Bild · DALL-E 3
+              ~$0.04 pro Bild · Gemini 3.1
             </div>
           </div>
 
