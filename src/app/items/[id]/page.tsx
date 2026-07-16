@@ -5,6 +5,7 @@ import StatusActions from './StatusActions'
 import AiWearPhotoButton from './AiWearPhotoButton'
 import ImageGallery from './ImageGallery'
 import AiAdvisor from './AiAdvisor'
+import CopyListing from './CopyListing'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -167,6 +168,12 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
               )}
             </div>
           )}
+
+          <CopyListing
+            title={item.listing_title || item.name || ''}
+            description={item.listing_description || ''}
+            price={item.target_price ?? null}
+          />
         </div>
 
         <div>
