@@ -6,6 +6,7 @@ import AiWearPhotoButton from './AiWearPhotoButton'
 import ImageGallery from './ImageGallery'
 import AiAdvisor from './AiAdvisor'
 import CopyListing from './CopyListing'
+import PostToKaButton from './PostToKaButton'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -177,6 +178,8 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
         </div>
 
         <div>
+          <PostToKaButton itemId={item.id} hasListing={!!item.listing_title} />
+
           <div className="panel" style={{ padding: '1.25rem', marginBottom: '1rem' }}>
             <h2 style={{ margin: '0 0 1rem', fontSize: '0.85rem', letterSpacing: '0.08em' }}>
               WORKFLOW <span style={{ color: '#1e293b' }}>//</span>{' '}
