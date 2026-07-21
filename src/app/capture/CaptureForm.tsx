@@ -196,7 +196,7 @@ export default function CaptureForm({
         </select>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+      <div className="r-fields-3">
         <div>
           <label className="form-label">Einkaufspreis (€)</label>
           <div style={{ position: 'relative' }}>
@@ -240,7 +240,7 @@ export default function CaptureForm({
 
       <SectionDivider label="DETAILS" />
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+      <div className="r-fields-2">
         <div>
           <label className="form-label">Marke <Opt /></label>
           <input name="brand" type="text" className="form-input" placeholder="z.B. Omega, Rolex, Levi's" />
@@ -251,7 +251,7 @@ export default function CaptureForm({
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+      <div className="r-fields-3">
         <div>
           <label className="form-label">Baujahr <Opt /></label>
           <input name="year" type="number" min="1800" max="2099" className="form-input" placeholder="z.B. 1968" />
@@ -266,7 +266,7 @@ export default function CaptureForm({
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+      <div className="r-fields-3">
         <div>
           <label className="form-label">Ø Durchmesser mm <Opt /></label>
           <input name="diameter_mm" type="number" min="0" step="0.5" className="form-input" placeholder="z.B. 36" />

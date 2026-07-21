@@ -79,9 +79,9 @@ export default async function PlatformPage({ params }: { params: Promise<{ accou
   ]
 
   return (
-    <div style={{ minHeight: '100vh', padding: '2rem', paddingBottom: '3rem' }}>
+    <div className="page-shell">
       {/* Breadcrumb */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
+      <div className="crumbs" style={{ marginBottom: '1.5rem' }}>
         <Link href="/" style={{ color: '#475569', fontSize: '0.75rem', letterSpacing: '0.08em', textTransform: 'uppercase', textDecoration: 'none' }}>
           ← COMMAND CENTER
         </Link>
@@ -100,7 +100,7 @@ export default async function PlatformPage({ params }: { params: Promise<{ accou
 
       {/* KPI row — only if we have data */}
       {latest && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '0.75rem', marginBottom: '1.5rem' }}>
+        <div className="r-stats-6" style={{ marginBottom: '1.5rem' }}>
           {[
             { label: 'Views',       value: String(latest.views),              color: '#e0f2fe' },
             { label: 'Klicks',      value: String(latest.clicks),             color: '#06b6d4' },
@@ -117,7 +117,7 @@ export default async function PlatformPage({ params }: { params: Promise<{ accou
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '1.5rem' }}>
+      <div className="r-split-300">
         {/* History table */}
         <div className="panel" style={{ padding: '1.25rem' }}>
           <h2 style={{ margin: '0 0 1rem', fontSize: '0.85rem', letterSpacing: '0.08em' }}>

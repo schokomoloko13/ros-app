@@ -1,6 +1,8 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useIsMobile } from '@/lib/useIsMobile';
 
 const URLS = {
   ka: 'https://www.kleinanzeigen.de/p-anzeige-aufgeben-schritt2.html',
@@ -24,9 +26,19 @@ export default function PostToKaButton({ itemId, hasListing }: Props) {
   const [states, setStates] = useState<Record<Platform, State>>({ ka: 'idle', vinted: 'idle' });
   const [hint, setHint] = useState('');
   const answered = useRef(false);
+  const isMobile = useIsMobile();
+  const router = useRouter();
 
   function post(platform: Platform) {
     if (!hasListing || states[platform] === 'sending') return;
+
+    // Auf dem Handy gibt es keine Chrome-Extension — dort führt der
+    // manuelle Schritt-für-Schritt-Flow zum Ziel.
+    if (isMobile) {
+      router.push(`/items/${itemId}/posten`);
+      return;
+    }
+
     setStates(s => ({ ...s, [platform]: 'sending' }));
     setHint('');
     answered.current = false;
@@ -101,13 +113,15 @@ export default function PostToKaButton({ itemId, hasListing }: Props) {
       </h2>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-        {renderButton('ka', '📤 AUF KLEINANZEIGEN POSTEN', '#06b6d4')}
-        {renderButton('vinted', '📤 AUF VINTED POSTEN', '#c084fc')}
+        {renderButton('ka', isMobile ? '📱 POST-FLOW ÖFFNEN (KA)' : '📤 AUF KLEINANZEIGEN POSTEN', '#06b6d4')}
+        {renderButton('vinted', isMobile ? '📱 POST-FLOW ÖFFNEN (VINTED)' : '📤 AUF VINTED POSTEN', '#c084fc')}
       </div>
 
       {!hasListing && (
         <div style={{ fontSize: '0.65rem', color: '#f59e0b', marginTop: '0.6rem', lineHeight: 1.5 }}>
-          Erst KI-Text generieren — ohne Titel kann die Extension nichts ausfüllen.
+          {isMobile
+            ? 'Erst KI-Text generieren — ohne Titel gibt es nichts zu kopieren.'
+            : 'Erst KI-Text generieren — ohne Titel kann die Extension nichts ausfüllen.'}
         </div>
       )}
       {hint && (
@@ -123,7 +137,9 @@ export default function PostToKaButton({ itemId, hasListing }: Props) {
         </div>
       )}
       <div style={{ fontSize: '0.6rem', color: '#475569', marginTop: '0.6rem', textAlign: 'center' }}>
-        Extension füllt das Formular automatisch aus
+        {isMobile
+          ? 'Mobil: Bilder sichern · Text kopieren · App öffnen'
+          : 'Extension füllt das Formular automatisch aus'}
       </div>
     </div>
   );

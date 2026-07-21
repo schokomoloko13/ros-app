@@ -243,3 +243,100 @@ tr:hover td { background: rgba(6, 182, 212, 0.04); }
 .status-photographed{ background: rgba(168, 85, 247, 0.2);  color: #c084fc; }
 .status-listed      { background: rgba(34, 197, 94, 0.2);   color: #4ade80; }
 .status-sold        { background: rgba(6, 182, 212, 0.2);   color: #22d3ee; }
+
+/* ── Layout-Klassen (Breakpoint 768px) ───────────────────────────────────────
+   Die Seiten waren desktop-only per Inline-Style gesetzt. Inline schlägt jede
+   Media Query, darum wandern alle Raster, die mobil umbrechen müssen, hierher.
+   Namensschema: r-split-* = Hauptspalte + feste Seitenspalte,
+   r-stats-* = Kennzahlkacheln, r-fields-* = Formular-/Detailfelder. */
+.page-shell      { min-height: 100vh; padding: 2rem; padding-bottom: 3rem; }
+
+.r-split-380     { display: grid; gap: 1.5rem;  grid-template-columns: 1fr 380px; }
+.r-split-340     { display: grid; gap: 1rem;    grid-template-columns: 1fr 340px; }
+.r-split-300     { display: grid; gap: 1.5rem;  grid-template-columns: 1fr 300px; }
+
+/* Grid-Items haben min-width:auto und wachsen sonst auf die Breite ihres
+   breitesten Kindes (z. B. ein Foto) — damit sprengt die Spalte das Raster. */
+.r-split-380 > *, .r-split-340 > *, .r-split-300 > *,
+.r-stats-6 > *, .r-stats-4 > *, .r-stats-4-wide > *, .r-stats-3 > *, .r-stats-3-tight > *,
+.r-fields-3 > *, .r-fields-2 > *, .r-fields-2-tight > *,
+.matrix-row > *, .matrix-head > * { min-width: 0; }
+
+/* Bilder dürfen ihre Spalte nie aufweiten. */
+img { max-width: 100%; }
+
+.r-stats-6       { display: grid; gap: 0.75rem; grid-template-columns: repeat(6, 1fr); }
+.r-stats-4       { display: grid; gap: 0.75rem; grid-template-columns: repeat(4, 1fr); }
+.r-stats-4-wide  { display: grid; gap: 1rem;    grid-template-columns: repeat(4, 1fr); }
+.r-stats-3       { display: grid; gap: 0.75rem; grid-template-columns: repeat(3, 1fr); }
+.r-stats-3-tight { display: grid; gap: 0.5rem;  grid-template-columns: repeat(3, 1fr); }
+
+.r-fields-3      { display: grid; gap: 1rem;    grid-template-columns: repeat(3, 1fr); }
+.r-fields-2      { display: grid; gap: 1rem;    grid-template-columns: repeat(2, 1fr); }
+.r-fields-2-tight{ display: grid; gap: 0.75rem; grid-template-columns: repeat(2, 1fr); }
+
+/* Breadcrumb-Zeile: darf mobil umbrechen statt die Seite zu verbreitern. */
+.crumbs { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+
+/* Seitenkopf: Titel links, Aktionen rechts — mobil untereinander. */
+.page-head {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 1rem; flex-wrap: wrap;
+}
+
+/* Matrix: Desktop-Tabellenraster, mobil Karten (siehe Media Query unten). */
+.matrix-head,
+.matrix-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) 170px 170px 90px;
+  gap: 1rem;
+}
+.matrix-price { text-align: right; }
+
+/* ── Mobile ──────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  body { overflow-x: hidden; }
+
+  .page-shell { padding: 1rem; padding-bottom: 2.5rem; }
+
+  /* Seitenspalte rutscht unter die Hauptspalte */
+  .r-split-380, .r-split-340, .r-split-300 { grid-template-columns: 1fr; gap: 1rem; }
+
+  /* Kacheln: zwei nebeneinander bleiben bei 390px lesbar */
+  .r-stats-6, .r-stats-4, .r-stats-4-wide { grid-template-columns: repeat(2, 1fr); }
+  .r-stats-3, .r-stats-3-tight            { grid-template-columns: repeat(3, 1fr); }
+
+  /* Eingabefelder brauchen die volle Breite */
+  .r-fields-3, .r-fields-2 { grid-template-columns: 1fr; }
+  .r-fields-2-tight        { grid-template-columns: repeat(2, 1fr); }
+
+  /* Matrix wird zur Karte: Kopfzeile weg, alles untereinander */
+  .matrix-head { display: none; }
+  .matrix-row {
+    grid-template-columns: 1fr;
+    gap: 0.35rem;
+    border: 1px solid #1e293b;
+    border-radius: 8px;
+    background: #050a14;
+    padding: 0.75rem !important;
+    margin-bottom: 0.5rem;
+  }
+  /* Leere Plattform-Zellen ("—") würden die Karte nur aufblähen */
+  .matrix-empty { display: none; }
+  .matrix-price { text-align: left; }
+
+  /* Aktionsleiste im Kopf rutscht auf eine eigene, volle Zeile */
+  .page-head > div:last-child { display: flex; flex-wrap: wrap; gap: 0.5rem; width: 100%; }
+
+  /* Touch-Ziele: 44px ist das Minimum, das sich zuverlässig treffen lässt */
+  button, .btn-primary, a.btn-primary { min-height: 44px; }
+  .crumbs a { min-height: 44px; display: inline-flex; align-items: center; }
+  .form-input { min-height: 44px; font-size: 16px; } /* 16px verhindert iOS-Auto-Zoom */
+  .item-row { padding: 0.75rem; }
+
+  /* Panels dürfen mobil nicht mehr Rand als Inhalt haben */
+  .panel { padding: 1rem !important; }
+  .card  { padding: 1rem; }
+
+  table { display: block; overflow-x: auto; }
+}

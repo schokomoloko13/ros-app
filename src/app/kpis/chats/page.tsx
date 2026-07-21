@@ -2,7 +2,7 @@ import Link from 'next/link'
 
 export default function ChatsPage() {
   return (
-    <div style={{ minHeight: '100vh', padding: '2rem', paddingBottom: '3rem' }}>
+    <div className="page-shell">
       <Link href="/" style={{ color: '#475569', fontSize: '0.75rem', letterSpacing: '0.08em', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.4rem', marginBottom: '1.5rem' }}>
         ← COMMAND CENTER
       </Link>

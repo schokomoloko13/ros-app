@@ -31,7 +31,7 @@ export default async function DeadstockPage() {
   const fmt = (n: number) => n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
   return (
-    <div style={{ minHeight: '100vh', padding: '2rem', paddingBottom: '3rem' }}>
+    <div className="page-shell">
       <Link href="/" style={{ color: '#475569', fontSize: '0.75rem', letterSpacing: '0.08em', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.4rem', marginBottom: '1.5rem' }}>
         ← COMMAND CENTER
       </Link>
@@ -41,7 +41,7 @@ export default async function DeadstockPage() {
         Artikel mit Status "Eingekauft" die länger als 14 Tage nicht gelistet wurden. Handlungsbedarf!
       </p>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem', marginBottom: '1.5rem' }}>
+      <div className="r-stats-4" style={{ marginBottom: '1.5rem' }}>
         {[
           { label: 'Dead (>14d)',  value: String(dead.length),   color: dead.length > 0 ? '#ef4444' : '#22c55e' },
           { label: 'Urgent (>7d)', value: String(urgent.length), color: urgent.length > 0 ? '#f97316' : '#475569' },

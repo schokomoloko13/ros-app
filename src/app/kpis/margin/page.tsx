@@ -29,7 +29,7 @@ export default async function MarginPage() {
   const mc = (m: number) => m >= 30 ? '#22c55e' : m >= 15 ? '#06b6d4' : '#ef4444'
 
   return (
-    <div style={{ minHeight: '100vh', padding: '2rem', paddingBottom: '3rem' }}>
+    <div className="page-shell">
       <Link href="/" style={{ color: '#475569', fontSize: '0.75rem', letterSpacing: '0.08em', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.4rem', marginBottom: '1.5rem' }}>
         ← COMMAND CENTER
       </Link>
@@ -39,7 +39,7 @@ export default async function MarginPage() {
         Durchschnittliche Netto-Marge über alle verkauften Artikel. Ziel: ≥ 30 %.
       </p>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', marginBottom: '1.5rem' }}>
+      <div className="r-stats-3" style={{ marginBottom: '1.5rem' }}>
         {[
           { label: 'Net Margin (Ø)',  value: `${netMargin}%`,                color: mc(netMargin) },
           { label: 'Gesamt-Umsatz',   value: `€${fmt(totalRev)}`,            color: '#06b6d4' },

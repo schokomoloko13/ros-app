@@ -31,7 +31,7 @@ export default async function CapturePage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', padding: '2rem' }}>
+    <div className="page-shell">
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', marginBottom: '2rem' }}>
         <Link

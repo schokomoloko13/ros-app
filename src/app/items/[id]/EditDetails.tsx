@@ -170,7 +170,7 @@ export default function EditDetails({
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem' }}>
+      <div className="r-fields-2-tight">
         {FIELDS.map(f => (
           <div key={f.key} style={{ background: '#050a14', border: '1px solid #1e293b', borderRadius: '6px', padding: '0.75rem 1rem' }}>
             <div style={{ fontSize: '0.6rem', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '0.25rem' }}>{f.label}</div>

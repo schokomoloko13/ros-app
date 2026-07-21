@@ -61,13 +61,13 @@ function platformBadge(listing: any, meta: { label: string; color: string }, acc
   return <span>{inner}</span>
 }
 
-const GRID = 'minmax(220px, 1fr) 170px 170px 90px'
-
+// Das Raster steckt in globals.css (.matrix-head/.matrix-row); mobil wird
+// daraus eine Karte pro Artikel — Name oben, Plattform-Zeilen darunter.
 function ItemRow({ item, platforms, accounts }: { item: any; platforms: Record<string, any>; accounts: any[] }) {
   return (
-    <div style={{
-      display: 'grid', gridTemplateColumns: GRID, gap: '1rem', alignItems: 'center',
-      padding: '0.6rem 1rem', borderBottom: '1px solid #0f172a', fontSize: '0.8rem',
+    <div className="matrix-row" style={{
+      alignItems: 'center', padding: '0.6rem 1rem',
+      borderBottom: '1px solid #0f172a', fontSize: '0.8rem',
     }}>
       <div>
         <Link href={`/items/${item.id}`} style={{ color: '#e0f2fe', textDecoration: 'none', fontWeight: 600 }}>
@@ -76,13 +76,13 @@ function ItemRow({ item, platforms, accounts }: { item: any; platforms: Record<s
         {item.brand && <span style={{ color: '#475569' }}> · {item.brand}</span>}
       </div>
       {(['kleinanzeigen', 'vinted'] as const).map(p => (
-        <div key={p}>
+        <div key={p} className={platforms[p] ? undefined : 'matrix-empty'}>
           {platforms[p]
             ? platformBadge(platforms[p], PLATFORM_META[p], accounts)
             : <span style={{ color: '#1e293b' }}>—</span>}
         </div>
       ))}
-      <div style={{ color: item.target_price ? '#22c55e' : '#334155', textAlign: 'right' }}>
+      <div className="matrix-price" style={{ color: item.target_price ? '#22c55e' : '#334155' }}>
         {item.target_price ? `€${Number(item.target_price).toFixed(0)}` : '—'}
       </div>
     </div>
@@ -92,8 +92,7 @@ function ItemRow({ item, platforms, accounts }: { item: any; platforms: Record<s
 function MatrixTable({ items, byItem, accounts }: { items: any[]; byItem: Record<string, Record<string, any>>; accounts: any[] }) {
   return (
     <div>
-      <div style={{
-        display: 'grid', gridTemplateColumns: GRID, gap: '1rem',
+      <div className="matrix-head" style={{
         padding: '0.5rem 1rem', fontSize: '0.6rem', color: '#475569',
         textTransform: 'uppercase', letterSpacing: '0.12em', borderBottom: '1px solid #1e293b',
       }}>
@@ -156,8 +155,8 @@ export default async function MatrixPage() {
   ]
 
   return (
-    <div style={{ minHeight: '100vh', padding: '2rem', paddingBottom: '3rem' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
+    <div className="page-shell">
+      <div className="crumbs" style={{ marginBottom: '1.5rem' }}>
         <Link href="/" style={{ color: '#475569', fontSize: '0.75rem', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
           ← COMMAND CENTER
         </Link>
@@ -185,7 +184,7 @@ export default async function MatrixPage() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
+      <div className="r-stats-4-wide" style={{ marginBottom: '1.5rem' }}>
         {stats.map(s => (
           <div key={s.label} className="panel" style={{ padding: '1rem 1.25rem' }}>
             <div style={{ fontSize: '0.6rem', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '0.35rem' }}>

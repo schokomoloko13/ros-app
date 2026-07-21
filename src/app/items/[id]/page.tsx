@@ -80,8 +80,8 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
   const listedDays = item.listed_at ? daysSince(item.listed_at) : 0
 
   return (
-    <div style={{ minHeight: '100vh', padding: '2rem', paddingBottom: '3rem' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
+    <div className="page-shell">
+      <div className="crumbs" style={{ marginBottom: '1.5rem' }}>
         <Link href="/" style={{ color: '#475569', fontSize: '0.75rem', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
           ← COMMAND CENTER
         </Link>
@@ -126,7 +126,7 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '1.5rem' }}>
+      <div className="r-split-380">
         <div>
           <ImageGallery initialImages={images || []} itemId={id} />
 

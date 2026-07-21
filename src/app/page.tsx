@@ -111,7 +111,7 @@ function PlatformNode({ name, platform, chats, views, listed, online, accountKey
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
+      <div className="r-stats-3-tight">
         {[
           { label: 'Chats',  value: chats,  color: chats > 0 ? '#f97316' : '#334155' },
           { label: 'Views',  value: views,  color: '#06b6d4' },
@@ -252,9 +252,9 @@ export default async function Dashboard({ searchParams }: { searchParams: Search
   ]
 
   return (
-    <div style={{ minHeight: '100vh', padding: '2rem', paddingBottom: '3rem' }}>
+    <div className="page-shell">
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+      <div className="page-head" style={{ marginBottom: '1.5rem' }}>
         <div>
           <h1 style={{ fontSize: '1.5rem', margin: 0, letterSpacing: '0.1em' }}>R.O.S. COMMAND CENTER</h1>
           <p style={{ color: '#64748b', fontSize: '0.75rem', margin: '0.25rem 0 0' }}>Resale Operating System v0.1.0</p>
@@ -283,7 +283,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Search
       </div>
 
       {/* KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '0.75rem', marginBottom: '1.5rem' }}>
+      <div className="r-stats-6" style={{ marginBottom: '1.5rem' }}>
         {kpis.map(kpi => <KpiCard key={kpi.label} {...kpi} />)}
       </div>
 
@@ -293,7 +293,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Search
       </Suspense>
 
       {/* Main 2-col layout */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '1rem', marginBottom: '1.25rem' }}>
+      <div className="r-split-340" style={{ marginBottom: '1.25rem' }}>
 
         {/* LEFT: Recent Items */}
         <div className="panel" style={{ padding: '1.25rem' }}>
@@ -417,7 +417,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Search
             {platformNodes.filter(n => n.online).length}/{platformNodes.length} online
           </span>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem' }}>
+        <div className="r-stats-4">
           {platformNodes.map(node => <PlatformNode key={node.name} {...node} />)}
         </div>
       </div>

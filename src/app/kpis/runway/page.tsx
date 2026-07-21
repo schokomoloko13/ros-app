@@ -28,7 +28,7 @@ export default async function RunwayPage() {
   const rc = runway === null ? '#475569' : runway > 6 ? '#22c55e' : runway > 3 ? '#06b6d4' : '#ef4444'
 
   return (
-    <div style={{ minHeight: '100vh', padding: '2rem', paddingBottom: '3rem' }}>
+    <div className="page-shell">
       <Link href="/" style={{ color: '#475569', fontSize: '0.75rem', letterSpacing: '0.08em', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.4rem', marginBottom: '1.5rem' }}>
         ← COMMAND CENTER
       </Link>
@@ -39,7 +39,7 @@ export default async function RunwayPage() {
         Formel: <span style={{ color: '#06b6d4' }}>Inventarwert (EK) ÷ Monats-Umsatz</span>
       </p>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', marginBottom: '1.5rem' }}>
+      <div className="r-stats-3" style={{ marginBottom: '1.5rem' }}>
         {[
           { label: 'Runway',              value: runway !== null ? `${runway.toFixed(1)} Mo` : '—', color: rc },
           { label: 'Inventarwert (EK)',   value: `€${fmt(inventoryValue)}`, color: '#06b6d4' },

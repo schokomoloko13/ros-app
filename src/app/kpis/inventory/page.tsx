@@ -33,7 +33,7 @@ export default async function InventoryPage() {
   const fmt = (n: number) => n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
   return (
-    <div style={{ minHeight: '100vh', padding: '2rem', paddingBottom: '3rem' }}>
+    <div className="page-shell">
       <Link href="/" style={{ color: '#475569', fontSize: '0.75rem', letterSpacing: '0.08em', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.4rem', marginBottom: '1.5rem' }}>
         ← COMMAND CENTER
       </Link>
@@ -43,7 +43,7 @@ export default async function InventoryPage() {
         Gesamtwert aller Artikel im Lager (Einkaufspreis-Basis, exkl. verkaufte Artikel).
       </p>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem', marginBottom: '1.5rem' }}>
+      <div className="r-stats-4" style={{ marginBottom: '1.5rem' }}>
         {[
           { label: 'Gesamtwert (EK)', value: `€${fmt(totalValue)}`,        color: '#06b6d4' },
           { label: 'Artikel total',   value: String(items?.length || 0),    color: '#e0f2fe' },

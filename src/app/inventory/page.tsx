@@ -47,7 +47,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Se
 
   if (error) {
     return (
-      <div style={{ minHeight: '100vh', padding: '2rem' }}>
+      <div className="page-shell">
         <div style={{ color: '#ef4444', fontSize: '0.85rem' }}>
           Fehler beim Laden: {error.message}
         </div>
@@ -83,9 +83,9 @@ export default async function InventoryPage({ searchParams }: { searchParams: Se
   }
 
   return (
-    <div style={{ minHeight: '100vh', padding: '2rem', paddingBottom: '3rem' }}>
+    <div className="page-shell">
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+      <div className="page-head" style={{ marginBottom: '1.5rem' }}>
         <div>
           <h1 style={{ fontSize: '1.5rem', margin: 0, letterSpacing: '0.1em' }}>INVENTORY</h1>
           <p style={{ color: '#64748b', fontSize: '0.75rem', margin: '0.25rem 0 0' }}>

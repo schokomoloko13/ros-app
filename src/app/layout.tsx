@@ -12,6 +12,14 @@ export const metadata = {
   description: 'Jarvis-style command center',
 }
 
+// Explizit gesetzt, damit die Media Queries auf dem Handy greifen und iOS
+// nicht auf eine 980px-Desktopbreite herauszoomt.
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover' as const,
+}
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="de" className={jetbrainsMono.variable}>
