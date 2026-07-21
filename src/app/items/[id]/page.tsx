@@ -218,6 +218,7 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
               currentStatus={item.status}
               nextStatus={nextStatus}
               prevStatus={prevStatus}
+              targetPrice={item.target_price}
             />
           </div>
 

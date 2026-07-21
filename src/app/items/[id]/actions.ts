@@ -10,6 +10,7 @@ function revalidateViews(itemId?: string) {
   revalidatePath('/')
   revalidatePath('/inventory')
   revalidatePath('/matrix')
+  revalidatePath('/finanzen')
   if (itemId) revalidatePath(`/items/${itemId}`)
 }
 
@@ -26,7 +27,20 @@ export type StatusResult =
   | { ok: true }
   | { ok: false; error: string }
 
-export async function updateItemStatus(itemId: string, newStatus: string): Promise<StatusResult> {
+/** Verkaufsdaten aus dem "Verkauft"-Dialog. Beide Felder sind optional —
+ *  wer den Dialog abbricht, verkauft ohne Preis. */
+export type SaleInput = {
+  /** Verkaufspreis; null/undefined = nicht erfasst. */
+  soldPrice?: number | null
+  /** Verkaufsdatum als YYYY-MM-DD. */
+  soldAt?: string | null
+}
+
+export async function updateItemStatus(
+  itemId: string,
+  newStatus: string,
+  sale?: SaleInput
+): Promise<StatusResult> {
   const validStatuses = ['purchased', 'checked', 'photographed', 'listed', 'sold']
   if (!validStatuses.includes(newStatus)) {
     return { ok: false, error: 'Ungültiger Status.' }
@@ -39,6 +53,24 @@ export async function updateItemStatus(itemId: string, newStatus: string): Promi
   }
   if (newStatus === 'listed') updateData.listed_at = new Date().toISOString()
   if (newStatus !== 'listed') updateData.listed_at = null
+
+  if (newStatus === 'sold') {
+    // sold_at immer setzen — sonst fällt /finanzen auf updated_at zurück, das
+    // sich bei jeder späteren Bearbeitung verschiebt. Mittag statt Mitternacht,
+    // damit die Zeitzone das Datum nicht auf den Vortag kippt.
+    updateData.sold_at = sale?.soldAt
+      ? new Date(`${sale.soldAt}T12:00:00`).toISOString()
+      : new Date().toISOString()
+    // Preis nur schreiben, wenn er erfasst wurde (Abbrechen = ohne Preis).
+    if (sale?.soldPrice != null && Number.isFinite(sale.soldPrice)) {
+      updateData.sold_price = sale.soldPrice
+    }
+  } else {
+    // Zurück aus "Verkauft": Verkaufsdaten entfernen, sonst rechnet /finanzen
+    // weiter mit einem Verkauf, den es nicht mehr gibt.
+    updateData.sold_price = null
+    updateData.sold_at = null
+  }
 
   const { error } = await supabase.from('items').update(updateData).eq('id', itemId)
   if (error) return { ok: false, error: error.message }
