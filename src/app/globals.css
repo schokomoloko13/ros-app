@@ -260,7 +260,8 @@ tr:hover td { background: rgba(6, 182, 212, 0.04); }
 .r-split-380 > *, .r-split-340 > *, .r-split-300 > *,
 .r-stats-6 > *, .r-stats-4 > *, .r-stats-4-wide > *, .r-stats-3 > *, .r-stats-3-tight > *,
 .r-fields-3 > *, .r-fields-2 > *, .r-fields-2-tight > *,
-.matrix-row > *, .matrix-head > * { min-width: 0; }
+.matrix-row > *, .matrix-head > *,
+.card-grid > *, .card-grid > * > * { min-width: 0; }
 
 /* Bilder dürfen ihre Spalte nie aufweiten. */
 img { max-width: 100%; }
@@ -294,32 +295,69 @@ img { max-width: 100%; }
 .matrix-price { text-align: right; }
 
 /* ── Mobile ──────────────────────────────────────────────────────────────── */
+/* ── Mobile: Dichte-Pass ──────────────────────────────────────────────────
+   Ziel ist wenig Scrollhöhe bei 375px. Die Seiten setzen Abstände inline,
+   darum steht hier viel !important — das ist der einzige Weg, Inline-Werte
+   zu überschreiben, ohne jede Seite anzufassen. Nicht angetastet werden
+   bewusst: 16px in Inputs (sonst zoomt iOS beim Antippen) und ~40px
+   Mindesthöhe für alles Antippbare. */
 @media (max-width: 768px) {
   body { overflow-x: hidden; }
 
-  .page-shell { padding: 1rem; padding-bottom: 2.5rem; }
+  .page-shell { padding: 0.75rem; padding-bottom: 2rem; }
 
   /* Seitenspalte rutscht unter die Hauptspalte */
-  .r-split-380, .r-split-340, .r-split-300 { grid-template-columns: 1fr; gap: 1rem; }
+  .r-split-380, .r-split-340, .r-split-300 { grid-template-columns: 1fr; gap: 0.75rem; }
+  .r-split-380, .r-split-340, .r-split-300 { margin-bottom: 0.75rem !important; }
 
-  /* Kacheln: zwei nebeneinander bleiben bei 390px lesbar */
+  /* Kacheln: zwei nebeneinander bleiben bei 375px lesbar */
   .r-stats-6, .r-stats-4, .r-stats-4-wide { grid-template-columns: repeat(2, 1fr); }
   .r-stats-3, .r-stats-3-tight            { grid-template-columns: repeat(3, 1fr); }
+  .r-stats-6, .r-stats-4, .r-stats-4-wide,
+  .r-stats-3, .r-stats-3-tight { gap: 0.5rem; margin-bottom: 0.75rem !important; }
 
-  /* Eingabefelder brauchen die volle Breite */
-  .r-fields-3, .r-fields-2 { grid-template-columns: 1fr; }
-  .r-fields-2-tight        { grid-template-columns: repeat(2, 1fr); }
+  /* Feldreihen zweispaltig: kurze Felder (Preise, Baujahr, Größe) passen bei
+     375px nebeneinander und halbieren die Formularhöhe — entscheidend für
+     /capture. Die Inputs bleiben dabei auf 16px, es wird nur enger, nicht
+     kleiner. */
+  .r-fields-3, .r-fields-2, .r-fields-2-tight { grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+
+  /* Überschriften und Sekundärtext eine Stufe kleiner */
+  h1 { font-size: 1.15rem !important; margin-bottom: 0.6rem !important; }
+  h2 { font-size: 0.75rem !important; margin-bottom: 0.6rem !important; }
+  .crumbs { gap: 0.5rem; margin-bottom: 0.75rem !important; }
+  .crumbs a, .crumbs span { font-size: 0.65rem !important; }
+  .page-head { margin-bottom: 0.75rem !important; gap: 0.6rem; }
+
+  /* Kennzahl-Kacheln */
+  .kpi-card { padding: 0.6rem; }
+  .kpi-value { font-size: 1.25rem; }
+  .r-stats-4-wide .panel, .r-stats-6 .panel, .r-stats-4 .panel { padding: 0.6rem !important; }
+  .r-stats-4-wide .panel > div:first-child { font-size: 0.55rem !important; }
+  .r-stats-4-wide .panel > div:last-child  { font-size: 1.25rem !important; }
+
+  /* Detail-Feldkarten (DETAILS-Raster). Die Zeilenhöhe zählt hier doppelt:
+     lange Werte brechen in der schmalen Spalte auf drei, vier Zeilen um. */
+  .r-fields-2-tight { gap: 0.35rem; }
+  .r-fields-2-tight > div { padding: 0.4rem 0.5rem !important; }
+  .r-fields-2-tight > div > div:first-child { font-size: 0.55rem !important; }
+  .r-fields-2-tight > div > div:last-child  { font-size: 0.75rem !important; line-height: 1.3 !important; }
+
+  /* Fließtexte (KI-Beschreibung, Notizen) — der längste Block der
+     Artikelseite; eine Stufe kleiner und enger gesetzt. */
+  [style*="pre-wrap"] { font-size: 0.72rem !important; line-height: 1.45 !important; }
 
   /* Matrix wird zur Karte: Kopfzeile weg, alles untereinander */
   .matrix-head { display: none; }
   .matrix-row {
     grid-template-columns: 1fr;
-    gap: 0.35rem;
+    gap: 0.25rem;
     border: 1px solid #1e293b;
     border-radius: 8px;
     background: #050a14;
-    padding: 0.75rem !important;
-    margin-bottom: 0.5rem;
+    padding: 0.4rem 0.5rem !important;
+    margin-bottom: 0.4rem;
+    line-height: 1.45;
   }
   /* Leere Plattform-Zellen ("—") würden die Karte nur aufblähen */
   .matrix-empty { display: none; }
@@ -328,15 +366,36 @@ img { max-width: 100%; }
   /* Aktionsleiste im Kopf rutscht auf eine eigene, volle Zeile */
   .page-head > div:last-child { display: flex; flex-wrap: wrap; gap: 0.5rem; width: 100%; }
 
-  /* Touch-Ziele: 44px ist das Minimum, das sich zuverlässig treffen lässt */
-  button, .btn-primary, a.btn-primary { min-height: 44px; }
-  .crumbs a { min-height: 44px; display: inline-flex; align-items: center; }
-  .form-input { min-height: 44px; font-size: 16px; } /* 16px verhindert iOS-Auto-Zoom */
-  .item-row { padding: 0.75rem; }
+  /* Touch-Ziele: 40px, das untere Ende dessen, was sich sicher treffen lässt */
+  button, .btn-primary, a.btn-primary { min-height: 40px; }
+  .btn-primary { padding: 0.5rem 0.9rem; font-size: 0.75rem; }
+  /* Einzelne Buttons setzen inline ein großzügiges Polster; min-height hält
+     das Touch-Ziel trotzdem bei 40px. */
+  .panel button { padding-top: 0.55rem !important; padding-bottom: 0.55rem !important; }
+  .crumbs a { min-height: 40px; display: inline-flex; align-items: center; }
+  .item-row { padding: 0.5rem; }
 
-  /* Panels dürfen mobil nicht mehr Rand als Inhalt haben */
-  .panel { padding: 1rem !important; }
-  .card  { padding: 1rem; }
+  /* Formulare — /capture ist die meistgenutzte Seite auf dem Handy */
+  .page-shell form { gap: 0.6rem !important; }
+  .form-label { font-size: 0.6rem; margin-bottom: 0.2rem; }
+  .form-input {
+    min-height: 40px;
+    font-size: 16px; /* NICHT verkleinern: unter 16px zoomt iOS beim Fokus */
+    padding: 0.45rem 0.6rem;
+  }
+
+  /* Fotogitter: zwei Spalten statt einer großen Kachel spart viel Höhe */
+  .gallery-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 0.4rem !important; }
+
+  /* Panels dürfen mobil nicht mehr Rand als Inhalt haben — aber NICHT die
+     verlinkten Bildkacheln (/inventory): die setzen bewusst padding:0 für
+     ein randloses Foto, ein erzwungener Innenabstand macht sie höher. */
+  .panel:not(a .panel) { padding: 0.75rem !important; margin-bottom: 0.75rem !important; }
+  .card  { padding: 0.75rem; }
+
+  /* Artikelkacheln zweispaltig: ihr quadratisches Foto bestimmt die Höhe,
+     halbe Breite heißt ungefähr halbe Seitenlänge. */
+  .card-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 0.5rem !important; margin-bottom: 1rem !important; }
 
   table { display: block; overflow-x: auto; }
 }

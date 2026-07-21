@@ -62,7 +62,7 @@ export default function ImageGallery({ initialImages, itemId }: { initialImages:
         <div style={{ fontSize: '0.6rem', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '0.75rem' }}>
           FOTOS · Ziehen zum Sortieren · Klick zum Vergrößern
         </div>
-        <div style={{
+        <div className="gallery-grid" style={{
           display: 'grid',
           gridTemplateColumns: images.length === 1 ? '1fr' : 'repeat(auto-fill, minmax(140px, 1fr))',
           gap: '0.5rem',

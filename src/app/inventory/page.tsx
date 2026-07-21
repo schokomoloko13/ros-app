@@ -102,7 +102,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Se
 
       {/* Grid */}
       {items && items.length > 0 ? (
-        <div style={{
+        <div className="card-grid" style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
           gap: '1rem',
