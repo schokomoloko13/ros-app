@@ -55,6 +55,13 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
     .eq('id', item.source_id)
     .single()
 
+  // M3.5: Plattform-Inserate (KA/Vinted) — Tabelle fehlt ggf. noch → dann leer
+  const { data: platformListings } = await supabase
+    .from('platform_listings')
+    .select('platform, status, listed_at, listing_url')
+    .eq('item_id', id)
+    .order('listed_at', { ascending: false })
+
   const categoryName = categories?.name || item.category_id
   const sourceName = sources?.name || item.source_id
 
@@ -179,6 +186,42 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
 
         <div>
           <PostToKaButton itemId={item.id} hasListing={!!item.listing_title} />
+
+          {platformListings && platformListings.length > 0 && (
+            <div className="panel" style={{ padding: '1.25rem', marginBottom: '1rem' }}>
+              <h2 style={{ margin: '0 0 1rem', fontSize: '0.85rem', letterSpacing: '0.08em' }}>
+                LIVE AUF <span style={{ color: '#1e293b' }}>//</span>{' '}
+                <span style={{ color: '#475569' }}>PLATTFORMEN</span>
+              </h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {platformListings.map((pl: any) => {
+                  const isKa = pl.platform === 'kleinanzeigen'
+                  const color = isKa ? '#06b6d4' : '#c084fc'
+                  const label = isKa ? 'KLEINANZEIGEN' : String(pl.platform).toUpperCase()
+                  const days = daysSince(pl.listed_at)
+                  const inner = (
+                    <>
+                      <span style={{ color, fontWeight: 700, fontSize: '0.75rem', letterSpacing: '0.08em' }}>{label}</span>
+                      <span style={{ color: '#64748b', fontSize: '0.7rem' }}>
+                        seit {new Date(pl.listed_at).toLocaleDateString('de-DE')} · {days}d
+                      </span>
+                    </>
+                  )
+                  return pl.listing_url ? (
+                    <a key={pl.platform} href={pl.listing_url} target="_blank" rel="noreferrer"
+                       style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#050a14', border: '1px solid #1e293b', borderRadius: '6px', padding: '0.6rem 1rem', textDecoration: 'none' }}>
+                      {inner}
+                    </a>
+                  ) : (
+                    <div key={pl.platform}
+                         style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#050a14', border: '1px solid #1e293b', borderRadius: '6px', padding: '0.6rem 1rem' }}>
+                      {inner}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="panel" style={{ padding: '1.25rem', marginBottom: '1rem' }}>
             <h2 style={{ margin: '0 0 1rem', fontSize: '0.85rem', letterSpacing: '0.08em' }}>
