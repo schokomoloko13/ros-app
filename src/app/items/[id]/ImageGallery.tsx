@@ -58,14 +58,15 @@ export default function ImageGallery({ initialImages, itemId }: { initialImages:
 
   return (
     <>
-      <div className="panel" style={{ padding: '1rem', marginBottom: '1rem' }}>
+      <div className="panel" style={{ padding: '0.75rem', marginBottom: '1rem' }}>
         <div style={{ fontSize: '0.6rem', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '0.75rem' }}>
           FOTOS · Ziehen zum Sortieren · Klick zum Vergrößern
         </div>
         <div className="gallery-grid" style={{
           display: 'grid',
-          gridTemplateColumns: images.length === 1 ? '1fr' : 'repeat(auto-fill, minmax(140px, 1fr))',
-          gap: '0.5rem',
+          gridTemplateColumns: 'repeat(auto-fill, 110px)',
+          gap: '0.4rem',
+          justifyContent: 'start',
         }}>
           {images.map((img, idx) => (
             <div

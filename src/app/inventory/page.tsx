@@ -98,6 +98,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Se
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <Link href="/capture"><button className="btn-primary" style={{ padding: '0.5rem 1rem', fontSize: '0.75rem' }}>+ NEU</button></Link>
+          <Link href="/schaufenster" target="_blank" style={{ background: 'transparent', border: '1px solid rgba(6,182,212,0.4)', borderRadius: '6px', color: '#06b6d4', fontSize: '0.75rem', fontFamily: 'inherit', padding: '0.5rem 1rem', cursor: 'pointer', letterSpacing: '0.05em', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>🪟 SCHaufenster</Link>
           <Link href="/"><button style={{ background: 'transparent', border: '1px solid #1e293b', borderRadius: '6px', color: '#475569', fontSize: '0.75rem', fontFamily: 'inherit', padding: '0.5rem 1rem', cursor: 'pointer', letterSpacing: '0.05em' }}>← COMMAND CENTER</button></Link>
         </div>
       </div>
@@ -106,12 +107,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Se
 
       {/* Grid */}
       {items && items.length > 0 ? (
-        <div className="card-grid" style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-          gap: '1rem',
-          marginBottom: '2rem',
-        }}>
+        <div className="card-grid" style={{ marginBottom: '2rem' }}>
           {items.map(item => {
             const imgUrl = imageMap.get(item.id)
             return (

@@ -526,3 +526,27 @@ img { max-width: 100%; }
   .fin-periodbar { gap: 0.3rem; flex-wrap: nowrap; }
   .fin-arrow { min-height: 32px; display: inline-flex; align-items: center; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   DESKTOP: Inventory als 6er-Raster + kompaktere Kacheln
+   (Mobil bleibt beim 4er-Raster — die Media Query oben gewinnt
+   dort per !important, diese Regeln greifen nur ab 769px.)
+   ═══════════════════════════════════════════════════════════════ */
+.card-grid { display: grid; }
+
+@media (min-width: 769px) {
+  .card-grid { grid-template-columns: repeat(6, 1fr); gap: 0.6rem; }
+  .card-grid .panel > div:last-child { padding: 0.45rem 0.6rem !important; }
+  .card-grid .panel > div:last-child > div { font-size: 0.62rem !important; }
+  .card-grid .panel > div:last-child > div:first-child { font-size: 0.72rem !important; }
+  .card-grid .panel > div:last-child > div:last-child { margin-top: 0.1rem !important; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SCHaufenster (/schaufenster) — kundenfähige Ansicht
+   ═══════════════════════════════════════════════════════════════ */
+.sf-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.75rem; }
+
+@media (max-width: 768px) {
+  .sf-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 0.5rem !important; }
+}
