@@ -71,7 +71,7 @@ export default async function FinanzenPage({ searchParams }: { searchParams: Sea
 
   const [{ data: items, error: itemsErr }, { data: expenses, error: expErr }] = await Promise.all([
     supabase.from('items')
-      .select('id, name, status, purchase_price, target_price, sold_price, sold_at, updated_at, purchase_date, listed_at, created_at'),
+      .select('id, name, status, purchase_price, target_price, sold_price, sold_at, updated_at, purchase_date'),
     supabase.from('expenses')
       .select('id, item_id, amount, category, note, expense_date, split_group')
       .order('expense_date', { ascending: false }),
@@ -226,36 +226,6 @@ export default async function FinanzenPage({ searchParams }: { searchParams: Sea
     m.gewinn -= Number(e.amount)
   }
 
-  // ── Tempo: Listing → Verkauf, Ladenhüter, Wartende ──────────────────
-  const dayDiff = (a: string, b: string) =>
-    Math.max(0, Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86_400_000))
-  const daysSince = (s: string) => dayDiff(s, new Date().toISOString())
-
-  const soldTempo = allItems
-    .filter(i => i.status === 'sold' && i.sold_at)
-    .map(i => ({ i, d: dayDiff(String(i.listed_at ?? i.purchase_date ?? i.created_at), String(i.sold_at)) }))
-  const avgTempo = soldTempo.length
-    ? Math.round(soldTempo.reduce((s, x) => s + x.d, 0) / soldTempo.length)
-    : null
-  const fastest = [...soldTempo].sort((a, b) => a.d - b.d).slice(0, 3)
-  const hangers = allItems
-    .filter(i => i.status === 'listed')
-    .map(i => ({ i, d: daysSince(String(i.listed_at ?? i.created_at)) }))
-    .sort((a, b) => b.d - a.d)
-    .slice(0, 5)
-  const waiting = allItems
-    .filter(i => ['purchased', 'checked', 'photographed'].includes(i.status))
-    .map(i => ({ i, d: daysSince(String(i.purchase_date ?? i.created_at)) }))
-    .sort((a, b) => b.d - a.d)
-    .slice(0, 5)
-
-  const tempoRow = (entry: { i: any; d: number }, color: string) => (
-    <Link key={entry.i.id} href={`/items/${entry.i.id}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.68rem', padding: '0.18rem 0', textDecoration: 'none', borderBottom: '1px solid #0f172a' }}>
-      <span style={{ color: '#e0f2fe', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.i.name}</span>
-      <span style={{ color, fontWeight: 700, flexShrink: 0, marginLeft: '0.5rem' }}>{entry.d}d</span>
-    </Link>
-  )
-
   return (
     <div className="page-shell">
       <div className="crumbs" style={{ marginBottom: '1rem' }}>
@@ -268,7 +238,6 @@ export default async function FinanzenPage({ searchParams }: { searchParams: Sea
         <h1 style={{ margin: 0, fontSize: '1.5rem', letterSpacing: '0.05em', color: '#e0f2fe' }}>
           FINANZEN
         </h1>
-        <Link href="/capture"><button className="btn-primary">+ NEUER EINKAUF</button></Link>
       </div>
 
       {/* ── Zeitraum ──────────────────────────────────────────────────── */}
@@ -400,39 +369,6 @@ export default async function FinanzenPage({ searchParams }: { searchParams: Sea
             </div>
           </Link>
         ))}
-      </div>
-
-      {/* ── Tempo: wie schnell verkauft sich was ─────────────────────── */}
-      <div className="panel" style={{ padding: '1rem', marginBottom: '1rem' }}>
-        <h2 style={{ margin: '0 0 0.75rem', fontSize: '0.85rem', letterSpacing: '0.08em' }}>
-          TEMPO <span style={{ color: '#1e293b' }}>//</span>{' '}
-          <span style={{ color: '#475569' }}>LISTING → VERKAUF</span>
-        </h2>
-        <div className="r-stats-4">
-          <div className="kpi-card">
-            <div className="kpi-label" style={{ fontSize: '0.6rem', color: '#475569', letterSpacing: '0.12em' }}>Ø TAGE BIS VERKAUF</div>
-            <div className="kpi-value" style={{ color: '#06b6d4' }}>{avgTempo ?? '—'}</div>
-            <div style={{ fontSize: '0.6rem', color: '#334155', marginTop: '2px' }}>{soldTempo.length} Verkäufe</div>
-          </div>
-          <div className="kpi-card">
-            <div className="kpi-label" style={{ fontSize: '0.6rem', color: '#475569', letterSpacing: '0.12em' }}>SCHNELLSELLER</div>
-            {fastest.length === 0 && <div style={{ fontSize: '0.7rem', color: '#334155' }}>Noch keine Verkäufe mit Datum.</div>}
-            {fastest.map(x => tempoRow(x, '#22c55e'))}
-          </div>
-          <div className="kpi-card">
-            <div className="kpi-label" style={{ fontSize: '0.6rem', color: '#475569', letterSpacing: '0.12em' }}>LADENHÜTER (ONLINE)</div>
-            {hangers.length === 0 && <div style={{ fontSize: '0.7rem', color: '#334155' }}>Nichts gelistet.</div>}
-            {hangers.map(x => tempoRow(x, x.d > 30 ? '#f97316' : '#64748b'))}
-          </div>
-          <div className="kpi-card">
-            <div className="kpi-label" style={{ fontSize: '0.6rem', color: '#475569', letterSpacing: '0.12em' }}>WARTENDE (NOCH NICHT ONLINE)</div>
-            {waiting.length === 0 && <div style={{ fontSize: '0.7rem', color: '#334155' }}>Alles online.</div>}
-            {waiting.map(x => tempoRow(x, '#06b6d4'))}
-            <div style={{ fontSize: '0.55rem', color: '#334155', marginTop: '0.35rem', lineHeight: 1.4 }}>
-              Tage seit Kauf — antizyklischer Kauf, kein Deadstock.
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* ── Ausgaben ──────────────────────────────────────────────────── */}

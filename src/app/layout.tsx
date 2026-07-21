@@ -1,5 +1,6 @@
 import { JetBrains_Mono } from 'next/font/google'
 import './globals.css'
+import NavBar from '../components/NavBar'
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
@@ -12,8 +13,6 @@ export const metadata = {
   description: 'Jarvis-style command center',
 }
 
-// Explizit gesetzt, damit die Media Queries auf dem Handy greifen und iOS
-// nicht auf eine 980px-Desktopbreite herauszoomt.
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
@@ -23,7 +22,10 @@ export const viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="de" className={jetbrainsMono.variable}>
-      <body className={jetbrainsMono.className}>{children}</body>
+      <body className={jetbrainsMono.className}>
+        <NavBar />
+        {children}
+      </body>
     </html>
   )
 }

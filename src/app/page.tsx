@@ -262,63 +262,6 @@ export default async function Dashboard({ searchParams }: { searchParams: Search
           <h1 style={{ fontSize: '1.5rem', margin: 0, letterSpacing: '0.1em' }}>R.O.S. COMMAND CENTER</h1>
           <p style={{ color: '#64748b', fontSize: '0.75rem', margin: '0.25rem 0 0' }}>Resale Operating System v0.1.0</p>
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <Link href="/inventory" style={{
-            background: 'transparent',
-            border: '1px solid #1e293b',
-            borderRadius: '6px',
-            color: '#475569',
-            fontSize: '0.75rem',
-            fontFamily: 'inherit',
-            fontWeight: 600,
-            letterSpacing: '0.05em',
-            padding: '0.6rem 1.2rem',
-            cursor: 'pointer',
-            textTransform: 'uppercase',
-            textDecoration: 'none',
-            display: 'inline-flex',
-            alignItems: 'center',
-          }}>
-            📦 INVENTORY
-          </Link>
-          <Link href="/finanzen" style={{
-            background: 'transparent',
-            border: '1px solid #1e293b',
-            borderRadius: '6px',
-            color: '#475569',
-            fontSize: '0.75rem',
-            fontFamily: 'inherit',
-            fontWeight: 600,
-            letterSpacing: '0.05em',
-            padding: '0.6rem 1.2rem',
-            cursor: 'pointer',
-            textTransform: 'uppercase',
-            textDecoration: 'none',
-            display: 'inline-flex',
-            alignItems: 'center',
-          }}>
-            💶 FINANZEN
-          </Link>
-          <Link href="/schaufenster" target="_blank" style={{
-            background: 'transparent',
-            border: '1px solid rgba(6,182,212,0.4)',
-            borderRadius: '6px',
-            color: '#06b6d4',
-            fontSize: '0.75rem',
-            fontFamily: 'inherit',
-            fontWeight: 600,
-            letterSpacing: '0.05em',
-            padding: '0.6rem 1.2rem',
-            cursor: 'pointer',
-            textTransform: 'uppercase',
-            textDecoration: 'none',
-            display: 'inline-flex',
-            alignItems: 'center',
-          }}>
-            🪟 SCHaufenster
-          </Link>
-          <Link href="/capture"><button className="btn-primary">+ NEUER EINKAUF</button></Link>
-        </div>
       </div>
 
       {/* KPIs */}

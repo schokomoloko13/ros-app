@@ -20,7 +20,7 @@ export const metadata = {
 export default async function SchaufensterPage() {
   const { data: items } = await supabase
     .from('items')
-    .select('id, name, brand, reference_number, year, color, size, diameter_mm, material, movement, condition_score, target_price')
+    .select('id, name, brand, reference_number, year, color, size, diameter_mm, material, movement, condition_score, target_price, category_id')
     .in('status', ['photographed', 'listed'])
     .order('created_at', { ascending: false })
 
@@ -33,6 +33,9 @@ export default async function SchaufensterPage() {
         .order('sort_order', { ascending: true })
     : { data: [] }
 
+  const { data: cats } = await supabase.from('categories').select('id, name')
+  const catName = new Map<string, string>((cats || []).map((c: any) => [c.id, c.name]))
+
   const byItem = new Map<string, any[]>()
   for (const img of images || []) {
     if (!byItem.has(img.item_id)) byItem.set(img.item_id, [])
@@ -41,6 +44,7 @@ export default async function SchaufensterPage() {
 
   const payload = (items || []).map(i => ({
     ...i,
+    category_name: i.category_id ? (catName.get(i.category_id) ?? null) : null,
     images: (byItem.get(i.id) || [])
       .sort((a, b) => Number(b.is_primary) - Number(a.is_primary) || a.sort_order - b.sort_order)
       .map(x => x.url as string),
