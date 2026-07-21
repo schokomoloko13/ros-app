@@ -281,6 +281,24 @@ export default async function Dashboard({ searchParams }: { searchParams: Search
           }}>
             📦 INVENTORY
           </Link>
+          <Link href="/finanzen" style={{
+            background: 'transparent',
+            border: '1px solid #1e293b',
+            borderRadius: '6px',
+            color: '#475569',
+            fontSize: '0.75rem',
+            fontFamily: 'inherit',
+            fontWeight: 600,
+            letterSpacing: '0.05em',
+            padding: '0.6rem 1.2rem',
+            cursor: 'pointer',
+            textTransform: 'uppercase',
+            textDecoration: 'none',
+            display: 'inline-flex',
+            alignItems: 'center',
+          }}>
+            💶 FINANZEN
+          </Link>
           <Link href="/capture"><button className="btn-primary">+ NEUER EINKAUF</button></Link>
         </div>
       </div>

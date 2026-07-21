@@ -466,3 +466,63 @@ img { max-width: 100%; }
 
   table { display: block; overflow-x: auto; }
 }
+
+/* ── Finanzen (/finanzen) ───────────────────────────────────────────────────
+   Eigene Klassen statt der Matrix-Klassen: die Bilanz hat sieben Spalten,
+   die Matrix vier. Aufbau ist bewusst derselbe — Desktop-Tabellenraster,
+   mobil Karten. Die bestehenden Klassen bleiben unangetastet. */
+.fin-head,
+.fin-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) 104px 78px 88px 88px 96px 96px;
+  gap: 0.6rem;
+  align-items: center;
+}
+.fin-head > *, .fin-row > * { min-width: 0; }
+.fin-num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Ausgabenzeile: Inhalt links, Aktionen rechts, darf umbrechen. */
+.fin-exp-row {
+  display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
+}
+.fin-exp-main { flex: 1 1 12rem; min-width: 0; }
+
+/* Zeitraum-Steuerung: Pfeile + Chips in einer Zeile, Label darunter. */
+.fin-periodbar { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+.fin-arrow {
+  flex: 0 0 auto; min-width: 2rem; text-align: center;
+  border: 1px solid #334155; border-radius: 6px; background: #050a14;
+  color: #94a3b8; text-decoration: none; padding: 0.3rem 0.55rem; line-height: 1.4;
+}
+.fin-arrow:hover { border-color: #06b6d4; color: #06b6d4; }
+
+@media (max-width: 768px) {
+  /* Bilanz wird zur Karte — gleiche Logik wie .matrix-row. Die Spaltenlabels
+     stecken in data-l, sonst wären die nackten Zahlen mobil nicht lesbar. */
+  .fin-head { display: none; }
+  .fin-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.15rem 0.5rem;
+    border: 1px solid #1e293b;
+    border-radius: 8px;
+    background: #050a14;
+    padding: 0.45rem 0.55rem !important;
+    margin-bottom: 0.4rem;
+    line-height: 1.4;
+    font-size: 0.7rem;
+  }
+  /* Name über die volle Breite, der Rest zweispaltig darunter. */
+  .fin-row > .fin-cell-name { grid-column: 1 / -1; }
+  .fin-row .fin-num { text-align: left; }
+  .fin-row > [data-l]::before {
+    content: attr(data-l) " ";
+    color: #475569; font-size: 0.55rem; letter-spacing: 0.08em;
+  }
+
+  .fin-exp-row { gap: 0.4rem; font-size: 0.7rem; }
+  /* Die Pfeile müssen neben der Chip-Reihe bleiben — sonst rutscht › bei fünf
+     Chips in eine eigene Zeile. Stattdessen scrollt die Chip-Reihe (das macht
+     die zentrale .chip-row-Regel weiter oben schon). */
+  .fin-periodbar { gap: 0.3rem; flex-wrap: nowrap; }
+  .fin-arrow { min-height: 32px; display: inline-flex; align-items: center; }
+}

@@ -4,6 +4,7 @@ import { useState, useTransition, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { captureItem } from './actions'
 import { generateListingText } from './generate'
+import { EXPENSE_CATEGORIES, todayISO } from '@/lib/expenses'
 
 const MAX_PHOTOS = 8
 const MAX_MB     = 10
@@ -118,6 +119,24 @@ export default function CaptureForm({
     })
   }
 
+  // Kosten, die beim Einkauf sofort anfallen (Fahrt, Verpackung …). Sie werden
+  // als expenses-Zeilen mit expense_date = Kaufdatum angelegt, damit sie in der
+  // Tagesübersicht auf /finanzen am richtigen Tag landen.
+  const [purchaseDate, setPurchaseDate] = useState(todayISO())
+  const [costRows, setCostRows] = useState<{ amount: string; category: string }[]>([])
+
+  function addCostRow() {
+    setCostRows(prev => [...prev, { amount: '', category: 'transport' }])
+  }
+  function updateCostRow(idx: number, patch: Partial<{ amount: string; category: string }>) {
+    setCostRows(prev => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)))
+  }
+  function removeCostRow(idx: number) {
+    setCostRows(prev => prev.filter((_, i) => i !== idx))
+  }
+
+  const costTotal = costRows.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0)
+
   const [aiStatus, setAiStatus]   = useState<AiStatus>('idle')
   const [aiError, setAiError]     = useState('')
   const [aiCtx, setAiCtx]         = useState<Record<string, string>>({})
@@ -219,6 +238,94 @@ export default function CaptureForm({
           </div>
           <div style={{ fontSize: '0.6rem', color: '#334155', marginTop: '0.35rem' }}>Preis, bei dem ich auch verkaufe</div>
         </div>
+      </div>
+
+      <div className="r-fields-2">
+        <div>
+          <label className="form-label">Kaufdatum</label>
+          <input
+            name="purchase_date"
+            type="date"
+            className="form-input"
+            value={purchaseDate}
+            onChange={e => setPurchaseDate(e.target.value)}
+            required
+          />
+        </div>
+      </div>
+
+      {/* Kosten gleich mit erfassen — optional, beliebig viele Zeilen. */}
+      <div style={{ border: '1px solid #1e293b', borderRadius: '6px', padding: '0.75rem', background: '#050a14' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <label className="form-label" style={{ margin: 0 }}>
+            Kosten gleich mit erfassen <Opt />
+          </label>
+          <button
+            type="button"
+            onClick={addCostRow}
+            style={{
+              fontFamily: 'monospace', fontSize: '0.65rem', letterSpacing: '0.08em',
+              padding: '0.3rem 0.75rem', borderRadius: '4px', cursor: 'pointer',
+              background: 'transparent', color: '#06b6d4', border: '1px solid #164e63',
+            }}
+          >
+            + ZEILE
+          </button>
+        </div>
+
+        {costRows.length === 0 ? (
+          <div style={{ fontSize: '0.6rem', color: '#334155', marginTop: '0.4rem' }}>
+            z. B. Fahrtkosten oder Verpackung — landen als Ausgabe am Kaufdatum.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.6rem' }}>
+            {costRows.map((row, idx) => (
+              <div key={idx} style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                <div style={{ position: 'relative', flex: '0 0 6.5rem' }}>
+                  <EuroSign />
+                  <input
+                    type="number" min="0" step="0.01" inputMode="decimal"
+                    className="form-input" placeholder="0.00"
+                    style={{ paddingLeft: '1.75rem' }}
+                    value={row.amount}
+                    onChange={e => updateCostRow(idx, { amount: e.target.value })}
+                  />
+                </div>
+                <select
+                  className="form-input"
+                  style={{ flex: '1 1 auto', minWidth: 0 }}
+                  value={row.category}
+                  onChange={e => updateCostRow(idx, { category: e.target.value })}
+                >
+                  {EXPENSE_CATEGORIES.map(c => (
+                    <option key={c.key} value={c.key}>{c.label}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => removeCostRow(idx)}
+                  aria-label="Zeile entfernen"
+                  style={{
+                    flex: '0 0 auto', background: 'transparent', color: '#64748b',
+                    border: '1px solid #334155', borderRadius: '4px',
+                    padding: '0.35rem 0.55rem', cursor: 'pointer', fontSize: '0.7rem',
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+            <div style={{ fontSize: '0.6rem', color: '#475569', textAlign: 'right' }}>
+              Summe Kosten: <span style={{ color: '#f97316', fontWeight: 700 }}>€{costTotal.toFixed(2)}</span>
+            </div>
+          </div>
+        )}
+        {/* Die Zeilen gehen als JSON mit — FormData kennt keine verschachtelten Listen. */}
+        <input
+          type="hidden"
+          name="capture_costs"
+          value={JSON.stringify(costRows.filter(r => parseFloat(r.amount) > 0))}
+        />
       </div>
 
       <div>

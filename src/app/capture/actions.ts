@@ -2,6 +2,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
+import { CATEGORY_KEYS } from '@/lib/expenses'
 
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -44,6 +45,9 @@ export async function captureItem(formData: FormData): Promise<CaptureResult> {
   const movement        = (formData.get('movement') as string) || null
   const conditionRaw    = formData.get('condition_score') as string
   const conditionScore  = conditionRaw ? parseInt(conditionRaw) : null
+  const purchaseDateRaw = (formData.get('purchase_date') as string) || ''
+  const purchaseDate    = /^\d{4}-\d{2}-\d{2}$/.test(purchaseDateRaw) ? purchaseDateRaw : null
+
   const notes           = (formData.get('notes') as string)?.trim() || null
   const listingTitle    = (formData.get('listing_title') as string)?.trim() || null
   const listingDesc     = (formData.get('listing_description') as string)?.trim() || null
@@ -59,6 +63,7 @@ export async function captureItem(formData: FormData): Promise<CaptureResult> {
       purchase_price:  purchasePrice,
       target_price:    targetPrice,
       min_price:       minPrice,
+      ...(purchaseDate ? { purchase_date: purchaseDate } : {}),
       status:          'purchased',
       brand,
       reference_number: referenceNumber,
@@ -77,6 +82,25 @@ export async function captureItem(formData: FormData): Promise<CaptureResult> {
     .single()
 
   if (error) return { ok: false, error: error.message }
+
+  // Direkt beim Einkauf erfasste Kosten → expenses am Kaufdatum.
+  // Schlägt das fehl, bleibt der Artikel trotzdem gespeichert; die Ausgaben
+  // lassen sich auf /finanzen nachtragen.
+  const costsRaw = (formData.get('capture_costs') as string) || '[]'
+  try {
+    const costs = JSON.parse(costsRaw) as { amount: string; category: string }[]
+    const rows = costs
+      .map(c => ({
+        item_id:      data.id,
+        amount:       parseFloat(c.amount),
+        category:     CATEGORY_KEYS.includes(c.category) ? c.category : 'sonstiges',
+        expense_date: purchaseDate ?? undefined,
+      }))
+      .filter(r => Number.isFinite(r.amount) && r.amount > 0)
+    if (rows.length) await supabase.from('expenses').insert(rows)
+  } catch {
+    // ungültiges JSON → keine Kosten anlegen
+  }
 
   const photos = formData.getAll('photos') as File[]
   const validPhotos = photos.filter(f => f && f.size > 0)
@@ -104,6 +128,7 @@ export async function captureItem(formData: FormData): Promise<CaptureResult> {
   // nicht erst nach Ablauf des ISR-Fensters.
   revalidatePath('/')
   revalidatePath('/inventory')
+  revalidatePath('/finanzen')
 
   return { ok: true, id: data.id }
 }

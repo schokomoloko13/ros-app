@@ -8,7 +8,7 @@ type Option = { id: string; name: string }
 type FieldDef = {
   key: string
   label: string
-  type: 'text' | 'number'
+  type: 'text' | 'number' | 'date'
   step?: string
   euro?: boolean
   suffix?: string
@@ -20,6 +20,10 @@ const FIELDS: FieldDef[] = [
   { key: 'purchase_price',   label: 'Einkaufspreis', type: 'number', step: '0.01', euro: true, color: '#06b6d4' },
   { key: 'target_price',     label: 'Wunschpreis',   type: 'number', step: '0.01', euro: true, color: '#22c55e' },
   { key: 'min_price',        label: 'Minimalpreis',  type: 'number', step: '0.01', euro: true, color: '#f97316' },
+  // Verkaufspreis wird sonst nirgends erfasst — ohne ihn bleibt der Umsatz
+  // auf /finanzen eine Schätzung über den Wunschpreis.
+  { key: 'sold_price',       label: 'Verkaufspreis', type: 'number', step: '0.01', euro: true, color: '#22d3ee' },
+  { key: 'purchase_date',    label: 'Kaufdatum',     type: 'date' },
   { key: 'brand',            label: 'Marke',         type: 'text' },
   { key: 'reference_number', label: 'Referenz',      type: 'text' },
   { key: 'year',             label: 'Baujahr',       type: 'number', step: '1' },
@@ -61,6 +65,11 @@ const btnBase = {
 
 function fmtValue(f: FieldDef, value: any): string {
   if (value == null || value === '') return '—'
+  // Die DB liefert ein reines ISO-Datum; angezeigt wird deutsch.
+  if (f.type === 'date') {
+    const [y, m, d] = String(value).slice(0, 10).split('-')
+    return `${d}.${m}.${y}`
+  }
   if (f.euro)   return `€${Number(value).toFixed(2)}`
   if (f.suffix === 'mm')  return `${value}mm`
   if (f.suffix === '/10') return `${value}/10`
