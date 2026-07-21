@@ -28,12 +28,24 @@ function fmtDate(d: string): string {
   return new Date(d).toLocaleDateString('de-DE')
 }
 
-function platformBadge(listing: any, meta: { label: string; color: string }) {
+// In der engen Matrix-Zelle ist nur Platz für ein Kürzel: "Konto 2" → "K2".
+function shortAccount(listing: any, accounts: any[]): string | null {
+  const acc = accounts.find(a => a.id === listing.platform_account_id)
+  const name = acc?.account_name || acc?.ka_username || listing.detected_account
+  if (!name) return null
+  const s = String(name).trim()
+  const num = s.match(/\d+/)
+  return num ? `${s[0].toUpperCase()}${num[0]}` : s.slice(0, 6).toUpperCase()
+}
+
+function platformBadge(listing: any, meta: { label: string; color: string }, accounts: any[]) {
   const days = daysSince(listing.listed_at)
   const relist = days > 30
+  const konto = shortAccount(listing, accounts)
   const inner = (
     <>
-      <span style={{ color: meta.color, fontWeight: 700 }}>● {meta.label}</span>{' '}
+      <span style={{ color: meta.color, fontWeight: 700 }}>● {meta.label}</span>
+      {konto && <span style={{ color: '#475569' }}> · {konto}</span>}{' '}
       <span style={{ color: relist ? '#f97316' : '#64748b' }}>
         {fmtDate(listing.listed_at)} · {days}d{relist ? ' 🔄' : ''}
       </span>
@@ -51,7 +63,7 @@ function platformBadge(listing: any, meta: { label: string; color: string }) {
 
 const GRID = 'minmax(220px, 1fr) 170px 170px 90px'
 
-function ItemRow({ item, platforms }: { item: any; platforms: Record<string, any> }) {
+function ItemRow({ item, platforms, accounts }: { item: any; platforms: Record<string, any>; accounts: any[] }) {
   return (
     <div style={{
       display: 'grid', gridTemplateColumns: GRID, gap: '1rem', alignItems: 'center',
@@ -66,7 +78,7 @@ function ItemRow({ item, platforms }: { item: any; platforms: Record<string, any
       {(['kleinanzeigen', 'vinted'] as const).map(p => (
         <div key={p}>
           {platforms[p]
-            ? platformBadge(platforms[p], PLATFORM_META[p])
+            ? platformBadge(platforms[p], PLATFORM_META[p], accounts)
             : <span style={{ color: '#1e293b' }}>—</span>}
         </div>
       ))}
@@ -77,7 +89,7 @@ function ItemRow({ item, platforms }: { item: any; platforms: Record<string, any
   )
 }
 
-function MatrixTable({ items, byItem }: { items: any[]; byItem: Record<string, Record<string, any>> }) {
+function MatrixTable({ items, byItem, accounts }: { items: any[]; byItem: Record<string, Record<string, any>>; accounts: any[] }) {
   return (
     <div>
       <div style={{
@@ -90,7 +102,7 @@ function MatrixTable({ items, byItem }: { items: any[]; byItem: Record<string, R
         <div style={{ color: PLATFORM_META.vinted.color }}>Vinted</div>
         <div style={{ textAlign: 'right' }}>Preis</div>
       </div>
-      {items.map(it => <ItemRow key={it.id} item={it} platforms={byItem[it.id] || {}} />)}
+      {items.map(it => <ItemRow key={it.id} item={it} platforms={byItem[it.id] || {}} accounts={accounts} />)}
     </div>
   )
 }
@@ -103,7 +115,14 @@ export default async function MatrixPage() {
 
   const { data: listings, error: listingsError } = await supabase
     .from('platform_listings')
-    .select('item_id, platform, status, listed_at, listing_url')
+    .select('item_id, platform, status, listed_at, listing_url, platform_account_id, detected_account')
+
+  // Kontonamen zum Auflösen von platform_account_id; Fehler hier darf die
+  // Matrix nicht leeren — dann fällt die Anzeige auf detected_account zurück.
+  const { data: accountRows } = await supabase
+    .from('platform_accounts')
+    .select('id, account_name, ka_username')
+  const accounts = accountRows || []
 
   // Ohne diese Prüfung sieht ein fehlgeschlagener Query exakt aus wie
   // "keine Daten vorhanden" — stumm leere Seite statt Fehlermeldung.
@@ -183,7 +202,7 @@ export default async function MatrixPage() {
           <span style={{ color: '#475569' }}>{live.length} ARTIKEL · ÄLTESTE OBEN · 🔄 = RELIST (&gt;30d)</span>
         </h2>
         {live.length
-          ? <MatrixTable items={live} byItem={byItem} />
+          ? <MatrixTable items={live} byItem={byItem} accounts={accounts} />
           : <div style={{ color: '#475569', fontSize: '0.8rem' }}>
               Noch nichts live. Poste einen Artikel per Button aus der Artikelseite — nach dem Veröffentlichen trägt die Extension ihn hier ein.
             </div>}
@@ -195,7 +214,7 @@ export default async function MatrixPage() {
             BEREIT ZUM POSTEN <span style={{ color: '#1e293b' }}>//</span>{' '}
             <span style={{ color: '#475569' }}>FOTOGRAFIERT, NIRGENDS LIVE</span>
           </h2>
-          <MatrixTable items={ready} byItem={byItem} />
+          <MatrixTable items={ready} byItem={byItem} accounts={accounts} />
         </div>
       )}
 
@@ -205,7 +224,7 @@ export default async function MatrixPage() {
             IN ARBEIT <span style={{ color: '#1e293b' }}>//</span>{' '}
             <span style={{ color: '#475569' }}>NOCH NICHT FOTOGRAFIERT</span>
           </h2>
-          <MatrixTable items={inWork} byItem={byItem} />
+          <MatrixTable items={inWork} byItem={byItem} accounts={accounts} />
         </div>
       )}
 

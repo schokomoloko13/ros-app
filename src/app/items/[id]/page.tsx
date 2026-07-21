@@ -52,9 +52,21 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
   // M3.5: Plattform-Inserate (KA/Vinted) — Tabelle fehlt ggf. noch → dann leer
   const { data: platformListings } = await supabase
     .from('platform_listings')
-    .select('platform, status, listed_at, listing_url')
+    .select('platform, status, listed_at, listing_url, platform_account_id, detected_account')
     .eq('item_id', id)
     .order('listed_at', { ascending: false })
+
+  // Über welches Konto wurde gepostet? platform_account_id ist die
+  // verlässliche Quelle, detected_account nur der rohe Erkennungstext.
+  const { data: accountList } = await supabase
+    .from('platform_accounts')
+    .select('id, account_name, ka_username')
+
+  const accountLabel = (pl: any): string | null => {
+    const acc = accountList?.find((a: any) => a.id === pl.platform_account_id)
+    const name = acc?.account_name || acc?.ka_username || pl.detected_account
+    return name ? String(name).toUpperCase() : null
+  }
 
   const categoryName = categoryList?.find((c: any) => c.id === item.category_id)?.name || item.category_id
   const sourceName = sourceList?.find((s: any) => s.id === item.source_id)?.name || item.source_id
@@ -168,9 +180,13 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
                   const color = isKa ? '#06b6d4' : '#c084fc'
                   const label = isKa ? 'KLEINANZEIGEN' : String(pl.platform).toUpperCase()
                   const days = daysSince(pl.listed_at)
+                  const konto = accountLabel(pl)
                   const inner = (
                     <>
-                      <span style={{ color, fontWeight: 700, fontSize: '0.75rem', letterSpacing: '0.08em' }}>{label}</span>
+                      <span style={{ color, fontWeight: 700, fontSize: '0.75rem', letterSpacing: '0.08em' }}>
+                        {label}
+                        {konto && <span style={{ color: '#64748b', fontWeight: 400 }}> · {konto}</span>}
+                      </span>
                       <span style={{ color: '#64748b', fontSize: '0.7rem' }}>
                         seit {new Date(pl.listed_at).toLocaleDateString('de-DE')} · {days}d
                       </span>
