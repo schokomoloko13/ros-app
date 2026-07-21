@@ -7,6 +7,7 @@ import ImageGallery from './ImageGallery'
 import AiAdvisor from './AiAdvisor'
 import CopyListing from './CopyListing'
 import PostToKaButton from './PostToKaButton'
+import EditDetails from './EditDetails'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -43,17 +44,10 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
     .eq('item_id', id)
     .order('sort_order', { ascending: true })
 
-  const { data: categories } = await supabase
-    .from('categories')
-    .select('name')
-    .eq('id', item.category_id)
-    .single()
-
-  const { data: sources } = await supabase
-    .from('sources')
-    .select('name')
-    .eq('id', item.source_id)
-    .single()
+  // Lookup-Listen für Anzeige + Bearbeiten-Dropdowns
+  const { data: categoryList } = await supabase.from('categories').select('id, name').order('name')
+  const { data: sourceList }   = await supabase.from('sources').select('id, name').order('name')
+  const { data: zoneList }     = await supabase.from('zones').select('id, name').order('name')
 
   // M3.5: Plattform-Inserate (KA/Vinted) — Tabelle fehlt ggf. noch → dann leer
   const { data: platformListings } = await supabase
@@ -62,8 +56,8 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
     .eq('item_id', id)
     .order('listed_at', { ascending: false })
 
-  const categoryName = categories?.name || item.category_id
-  const sourceName = sources?.name || item.source_id
+  const categoryName = categoryList?.find((c: any) => c.id === item.category_id)?.name || item.category_id
+  const sourceName = sourceList?.find((s: any) => s.id === item.source_id)?.name || item.source_id
 
   const currentStatusIndex = STATUS_FLOW.indexOf(item.status as typeof STATUS_FLOW[number])
   const nextStatus = currentStatusIndex < STATUS_FLOW.length - 1 ? STATUS_FLOW[currentStatusIndex + 1] : null
@@ -124,37 +118,12 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
         <div>
           <ImageGallery initialImages={images || []} itemId={id} />
 
-          <div className="panel" style={{ padding: '1.25rem' }}>
-            <h2 style={{ margin: '0 0 1rem', fontSize: '0.85rem', letterSpacing: '0.08em' }}>
-              DETAILS <span style={{ color: '#1e293b' }}>//</span>{' '}
-              <span style={{ color: '#475569' }}>SPECIFICATIONS</span>
-            </h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem' }}>
-              {[
-                { label: 'Einkaufspreis', value: item.purchase_price ? `€${item.purchase_price.toFixed(2)}` : '—', color: '#06b6d4' },
-                { label: 'Wunschpreis', value: item.target_price ? `€${item.target_price.toFixed(2)}` : '—', color: '#22c55e' },
-                { label: 'Minimalpreis', value: item.min_price ? `€${item.min_price.toFixed(2)}` : '—', color: '#f97316' },
-                { label: 'Nettogewinn', value: item.net_profit ? `€${item.net_profit.toFixed(2)}` : '—', color: '#22c55e' },
-                { label: 'Marge', value: item.profit_margin ? `${item.profit_margin.toFixed(1)}%` : '—', color: '#c084fc' },
-                { label: 'Gesamtkosten', value: item.total_cost ? `€${item.total_cost.toFixed(2)}` : '—', color: '#475569' },
-                { label: 'Marke', value: item.brand || '—' },
-                { label: 'Referenz', value: item.reference_number || '—' },
-                { label: 'Baujahr', value: item.year ? String(item.year) : '—' },
-                { label: 'Farbe', value: item.color || '—' },
-                { label: 'Größe', value: item.size || '—' },
-                { label: 'Ø mm', value: item.diameter_mm ? `${item.diameter_mm}mm` : '—' },
-                { label: 'Material', value: item.material || '—' },
-                { label: 'Uhrwerk', value: item.movement || '—' },
-                { label: 'Zustand', value: item.condition_score ? `${item.condition_score}/10` : '—' },
-                { label: 'Zone', value: item.zone_id || '—' },
-              ].map(d => (
-                <div key={d.label} style={{ background: '#050a14', border: '1px solid #1e293b', borderRadius: '6px', padding: '0.75rem 1rem' }}>
-                  <div style={{ fontSize: '0.6rem', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '0.25rem' }}>{d.label}</div>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 600, color: d.color || '#e0f2fe' }}>{d.value}</div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <EditDetails
+            item={item}
+            categories={categoryList || []}
+            sources={sourceList || []}
+            zones={zoneList || []}
+          />
 
           {(item.listing_title || item.listing_description) && (
             <div className="panel" style={{ padding: '1.25rem', marginTop: '1rem' }}>
