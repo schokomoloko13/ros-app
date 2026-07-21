@@ -9,7 +9,9 @@ const supabase = createClient(
   { auth: { autoRefreshToken: false, persistSession: false } }
 )
 
-export const dynamic = 'force-dynamic' // immer frische Daten, kein Build-Cache
+// ISR: 30s Cache-Fenster; Mutationen rufen zusätzlich revalidatePath('/matrix'),
+// damit ein neu eingetragenes Listing sofort auftaucht.
+export const revalidate = 30
 
 const PLATFORM_META: Record<string, { label: string; color: string }> = {
   kleinanzeigen: { label: 'KA', color: '#06b6d4' },

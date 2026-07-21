@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@supabase/supabase-js'
+import { revalidatePath } from 'next/cache'
 
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -98,6 +99,11 @@ export async function captureItem(formData: FormData): Promise<CaptureResult> {
       })
     }
   }
+
+  // Neuer Artikel muss sofort in Dashboard und Inventory auftauchen,
+  // nicht erst nach Ablauf des ISR-Fensters.
+  revalidatePath('/')
+  revalidatePath('/inventory')
 
   return { ok: true, id: data.id }
 }

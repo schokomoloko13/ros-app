@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { revalidatePath } from 'next/cache'
 
 // Gegenstück zum M3.5-Writeback der Extension, für Posts vom Handy.
 // Server-seitig mit Service-Key → unabhängig von RLS-Policies.
@@ -47,6 +48,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       await supabase.from('items').update({ status: 'listed', listed_at: now }).eq('id', id)
     }
 
+    // Matrix und Startseite laufen auf ISR — sonst taucht das frisch
+    // eingetragene Listing dort erst nach bis zu 30s auf.
+    revalidatePath('/')
+    revalidatePath('/matrix')
+    revalidatePath('/inventory')
+    revalidatePath(`/items/${id}`)
     return NextResponse.json({ ok: true })
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: String((e && e.message) || e) }, { status: 500 })

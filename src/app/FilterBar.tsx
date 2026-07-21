@@ -36,7 +36,9 @@ export default function FilterBar() {
   }
 
   return (
-    <div style={{
+    /* filterbar/chip-row: mobil eine einzige, horizontal scrollbare Zeile
+       statt drei umbrochener — siehe globals.css. */
+    <div className="filterbar" style={{
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
@@ -45,12 +47,13 @@ export default function FilterBar() {
       flexWrap: 'wrap',
     }}>
       {/* Chips */}
-      <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+      <div className="chip-row" style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
         {FILTERS.map(f => {
           const isActive = f.value === active
           return (
             <button
               key={f.value}
+              className="chip"
               onClick={() => set('filter', f.value)}
               style={{
                 padding: '0.3rem 0.75rem',
@@ -76,6 +79,7 @@ export default function FilterBar() {
       {/* Sort dropdown */}
       <select
         value={sort}
+        className="filter-sort"
         onChange={e => set('sort', e.target.value)}
         style={{
           background: '#0a1120',

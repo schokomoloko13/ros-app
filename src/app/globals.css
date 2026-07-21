@@ -244,6 +244,12 @@ tr:hover td { background: rgba(6, 182, 212, 0.04); }
 .status-listed      { background: rgba(34, 197, 94, 0.2);   color: #4ade80; }
 .status-sold        { background: rgba(6, 182, 212, 0.2);   color: #22d3ee; }
 
+/* Skeleton-Schimmer für die loading.tsx-Platzhalter */
+@keyframes ros-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
 /* ── Layout-Klassen (Breakpoint 768px) ───────────────────────────────────────
    Die Seiten waren desktop-only per Inline-Style gesetzt. Inline schlägt jede
    Media Query, darum wandern alle Raster, die mobil umbrechen müssen, hierher.
@@ -329,9 +335,68 @@ img { max-width: 100%; }
   .crumbs a, .crumbs span { font-size: 0.65rem !important; }
   .page-head { margin-bottom: 0.75rem !important; gap: 0.6rem; }
 
-  /* Kennzahl-Kacheln */
-  .kpi-card { padding: 0.6rem; }
-  .kpi-value { font-size: 1.25rem; }
+  /* ── Dashboard: sechs KPI-Kacheln in EINER Reihe ──────────────────────
+     Bei 375px bleiben pro Kachel ~53px. Das geht nur, wenn alles Beiwerk
+     verschwindet: Subtext und Sparkline raus, Label und Wert einzeilig mit
+     Ellipsis statt Umbruch. */
+  .r-stats-6 { grid-template-columns: repeat(6, 1fr); gap: 0.35rem; }
+  .kpi-card { padding: 0.35rem 0.25rem; }
+  .kpi-label {
+    font-size: 0.45rem !important;
+    letter-spacing: 0.01em !important;
+    margin-bottom: 1px !important;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .kpi-value {
+    font-size: 0.8rem;
+    font-weight: 700;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  /* !important, weil beide Elemente ihr display inline setzen (flex bzw.
+     block) — eine normale Regel würde dagegen verlieren. */
+  .kpi-sub, .sparkline { display: none !important; }
+
+  /* ── Dashboard: Filterleiste als eine scrollbare Zeile ───────────────── */
+  .filterbar { flex-wrap: nowrap !important; gap: 0.4rem !important; margin-bottom: 0.75rem !important; }
+  .chip-row {
+    flex: 1 1 auto;
+    min-width: 0;                   /* sonst schrumpft die Reihe nicht und
+                                       das Sortier-Dropdown überlappt sie */
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    gap: 0.35rem !important;
+    scrollbar-width: none;          /* Firefox */
+    -webkit-overflow-scrolling: touch;
+  }
+  .chip-row::-webkit-scrollbar { display: none; }
+  .chip {
+    flex-shrink: 0;
+    min-height: 32px !important;
+    font-size: 0.6rem !important;
+    padding: 0.3rem 0.6rem !important;
+  }
+  .filter-sort { flex-shrink: 0; min-height: 32px; font-size: 0.6rem !important; padding: 0.3rem 0.5rem !important; }
+
+  /* ── Dashboard: RECENT ITEMS auf die drei neuesten kürzen ───────────── */
+  .recent-list > *:nth-child(n+4) { display: none !important; }
+
+  /* ── Dashboard: Platform-Matrix in EINER Reihe ──────────────────────── */
+  .platform-grid { grid-template-columns: repeat(4, 1fr) !important; gap: 0.35rem; }
+  .platform-node { padding: 0.5rem !important; }
+  .pn-head { margin-bottom: 0.4rem !important; }
+  .pn-platform { font-size: 0.45rem !important; letter-spacing: 0.01em !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pn-name { font-size: 0.65rem !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pn-status { display: none; }             /* der Punkt allein genügt */
+  .pn-chats, .pn-views { display: none; }   /* mobil zählt nur LISTED */
+  .platform-node .r-stats-3-tight { grid-template-columns: 1fr; }
+  .pn-metric-value { font-size: 0.9rem !important; }
+  .pn-metric-label { font-size: 0.45rem !important; margin-top: 1px !important; }
+
+  /* ── Inventory: Kachelinhalt für vier pro Reihe (Raster s. unten) ───── */
+  .card-grid .panel > div:last-child { padding: 0.25rem 0.3rem !important; }
+  .card-grid .panel > div:last-child > div { font-size: 0.55rem !important; }
+  .card-grid .panel > div:last-child > div:first-child { font-size: 0.6rem !important; }
+  .card-grid .status-badge { font-size: 0.4rem !important; padding: 0.05rem 0.2rem !important; }
   .r-stats-4-wide .panel, .r-stats-6 .panel, .r-stats-4 .panel { padding: 0.6rem !important; }
   .r-stats-4-wide .panel > div:first-child { font-size: 0.55rem !important; }
   .r-stats-4-wide .panel > div:last-child  { font-size: 1.25rem !important; }
@@ -393,9 +458,11 @@ img { max-width: 100%; }
   .panel:not(a .panel) { padding: 0.75rem !important; margin-bottom: 0.75rem !important; }
   .card  { padding: 0.75rem; }
 
-  /* Artikelkacheln zweispaltig: ihr quadratisches Foto bestimmt die Höhe,
-     halbe Breite heißt ungefähr halbe Seitenlänge. */
-  .card-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 0.5rem !important; margin-bottom: 1rem !important; }
+  /* Artikelkacheln: vier pro Reihe. Ihr quadratisches Foto bestimmt die
+     Höhe, ein Viertel Breite heißt grob ein Viertel Seitenlänge.
+     (Die Spaltenzahl steht nur hier — eine zweite Regel weiter oben würde
+     von dieser überschrieben, weil beide !important sind.) */
+  .card-grid { grid-template-columns: repeat(4, 1fr) !important; gap: 0.3rem !important; margin-bottom: 1rem !important; }
 
   table { display: block; overflow-x: auto; }
 }

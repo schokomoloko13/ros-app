@@ -1,6 +1,17 @@
 'use server'
 
 import { createClient } from '@supabase/supabase-js'
+import { revalidatePath } from 'next/cache'
+
+// /, /inventory und /matrix laufen auf ISR (revalidate = 30). Ohne diesen
+// Aufruf würde router.refresh() nach einer Änderung bis zu 30s lang die alte,
+// gecachte Seite liefern.
+function revalidateViews(itemId?: string) {
+  revalidatePath('/')
+  revalidatePath('/inventory')
+  revalidatePath('/matrix')
+  if (itemId) revalidatePath(`/items/${itemId}`)
+}
 
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -31,6 +42,7 @@ export async function updateItemStatus(itemId: string, newStatus: string): Promi
 
   const { error } = await supabase.from('items').update(updateData).eq('id', itemId)
   if (error) return { ok: false, error: error.message }
+  revalidateViews(itemId)
   return { ok: true }
 }
 
@@ -41,6 +53,7 @@ export async function updateImageOrder(itemId: string, imageIds: string[]): Prom
       supabase.from('item_images').update({ sort_order: idx }).eq('id', id).eq('item_id', itemId)
     )
   )
+  revalidateViews(itemId)
   return { ok: true }
 }
 
@@ -50,6 +63,7 @@ export async function deleteImage(imageId: string, storagePath: string): Promise
   if (storageErr) return { ok: false, error: storageErr.message }
   const { error } = await supabase.from('item_images').delete().eq('id', imageId)
   if (error) return { ok: false, error: error.message }
+  revalidateViews()
   return { ok: true }
 }
 
@@ -58,6 +72,7 @@ export async function setPrimaryImage(itemId: string, imageId: string): Promise<
   await supabase.from('item_images').update({ is_primary: false }).eq('item_id', itemId)
   const { error } = await supabase.from('item_images').update({ is_primary: true }).eq('id', imageId)
   if (error) return { ok: false, error: error.message }
+  revalidateViews(itemId)
   return { ok: true }
 }
 

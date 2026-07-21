@@ -9,13 +9,16 @@ const supabase = createClient(
   { auth: { autoRefreshToken: false, persistSession: false } }
 )
 
-export const revalidate = 0
+// ISR: 30s frisch aus dem Cache, danach im Hintergrund neu gebaut. Mutationen
+// stoßen zusätzlich revalidatePath('/') an, damit Änderungen sofort sichtbar
+// sind statt bis zu 30s alt.
+export const revalidate = 30
 
 // ─── Sparkline ────────────────────────────────────────────────────────────────
 function Sparkline({ data, color }: { data: number[]; color: string }) {
   const max = Math.max(...data, 1)
   return (
-    <div style={{ display: 'flex', gap: '2px', alignItems: 'flex-end', height: '20px', marginTop: '8px' }}>
+    <div className="sparkline" style={{ display: 'flex', gap: '2px', alignItems: 'flex-end', height: '20px', marginTop: '8px' }}>
       {data.map((val, i) => (
         <div key={i} style={{
           width: '5px',
@@ -34,10 +37,10 @@ function KpiCard({ label, value, sub, sparkData, sparkColor, href }: {
   return (
     <Link href={href} style={{ textDecoration: 'none', display: 'block' }}>
       <div className="kpi-card" style={{ cursor: 'pointer' }}>
-        <div style={{ fontSize: '0.65rem', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '4px' }}>{label}</div>
+        <div className="kpi-label" style={{ fontSize: '0.65rem', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '4px' }}>{label}</div>
         <div className="kpi-value">{value}</div>
         {sub && (
-          <div style={{ fontSize: '0.7rem', marginTop: '2px', color: sparkColor === '#ef4444' ? '#ef4444' : sparkColor === '#22c55e' ? '#22c55e' : '#64748b' }}>
+          <div className="kpi-sub" style={{ fontSize: '0.7rem', marginTop: '2px', color: sparkColor === '#ef4444' ? '#ef4444' : sparkColor === '#22c55e' ? '#22c55e' : '#64748b' }}>
             {sub}
           </div>
         )}
@@ -89,14 +92,14 @@ function PlatformNode({ name, platform, chats, views, listed, online, accountKey
         background: online ? accentColor : '#1e293b',
       }} />
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
-        <div>
-          <div style={{ fontSize: '0.65rem', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '2px' }}>
+      <div className="pn-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+        <div style={{ minWidth: 0 }}>
+          <div className="pn-platform" style={{ fontSize: '0.65rem', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '2px' }}>
             {platformLabel}
           </div>
-          <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#e0f2fe' }}>{name}</div>
+          <div className="pn-name" style={{ fontSize: '0.9rem', fontWeight: 700, color: '#e0f2fe' }}>{name}</div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexShrink: 0 }}>
           <div
             className={online ? 'dot-online' : ''}
             style={{
@@ -105,7 +108,7 @@ function PlatformNode({ name, platform, chats, views, listed, online, accountKey
               color: '#22c55e',
             }}
           />
-          <span style={{ fontSize: '0.65rem', color: online ? '#22c55e' : '#334155', letterSpacing: '0.06em' }}>
+          <span className="pn-status" style={{ fontSize: '0.65rem', color: online ? '#22c55e' : '#334155', letterSpacing: '0.06em' }}>
             {online ? 'ONLINE' : 'OFFLINE'}
           </span>
         </div>
@@ -113,13 +116,13 @@ function PlatformNode({ name, platform, chats, views, listed, online, accountKey
 
       <div className="r-stats-3-tight">
         {[
-          { label: 'Chats',  value: chats,  color: chats > 0 ? '#f97316' : '#334155' },
-          { label: 'Views',  value: views,  color: '#06b6d4' },
-          { label: 'Listed', value: listed, color: '#475569' },
+          { key: 'chats',  label: 'Chats',  value: chats,  color: chats > 0 ? '#f97316' : '#334155' },
+          { key: 'views',  label: 'Views',  value: views,  color: '#06b6d4' },
+          { key: 'listed', label: 'Listed', value: listed, color: '#475569' },
         ].map(m => (
-          <div key={m.label} style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '1.3rem', fontWeight: 700, color: m.color, lineHeight: 1 }}>{m.value}</div>
-            <div style={{ fontSize: '0.6rem', color: '#334155', textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: '3px' }}>{m.label}</div>
+          <div key={m.label} className={`pn-metric pn-${m.key}`} style={{ textAlign: 'center' }}>
+            <div className="pn-metric-value" style={{ fontSize: '1.3rem', fontWeight: 700, color: m.color, lineHeight: 1 }}>{m.value}</div>
+            <div className="pn-metric-label" style={{ fontSize: '0.6rem', color: '#334155', textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: '3px' }}>{m.label}</div>
           </div>
         ))}
       </div>
@@ -306,7 +309,10 @@ export default async function Dashboard({ searchParams }: { searchParams: Search
           </div>
 
           {items && items.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            /* recent-list: mobil blendet die Media Query alles ab dem
+               4. Eintrag aus — rein per CSS, damit es keinen Hydration-
+               Unterschied zwischen Server und Client gibt. */
+            <div className="recent-list" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               {items.map(item => {
                 const days = daysSince(item.created_at)
                 const icon = CATEGORY_ICON[item.category_id] || '📦'
@@ -417,7 +423,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Search
             {platformNodes.filter(n => n.online).length}/{platformNodes.length} online
           </span>
         </div>
-        <div className="r-stats-4">
+        <div className="r-stats-4 platform-grid">
           {platformNodes.map(node => <PlatformNode key={node.name} {...node} />)}
         </div>
       </div>

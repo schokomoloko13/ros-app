@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { revalidatePath } from 'next/cache'
 
 // Server-seitig mit Service-Key → Schreiben klappt unabhängig von RLS-Policies.
 // Nur erlaubte Felder werden übernommen (berechnete Felder sind ausgeschlossen).
@@ -33,6 +34,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (error) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
     }
+    // Die Listen-Seiten laufen auf ISR — ohne das hier zeigt router.refresh()
+    // bis zu 30s lang die alten Werte.
+    revalidatePath('/')
+    revalidatePath('/inventory')
+    revalidatePath(`/items/${id}`)
     return NextResponse.json({ ok: true })
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: String((e && e.message) || e) }, { status: 500 })

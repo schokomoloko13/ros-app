@@ -8,6 +8,10 @@ const supabase = createClient(
   { auth: { autoRefreshToken: false, persistSession: false } }
 )
 
+// ISR statt voll dynamisch: Navigation kommt aus dem Cache, Mutationen
+// stoßen revalidatePath('/inventory') an.
+export const revalidate = 30
+
 const ITEMS_PER_PAGE = 24
 
 const STATUS_LABEL: Record<string, string> = {
