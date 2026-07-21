@@ -50,7 +50,7 @@ function TempoRow({ entry, color, meta }: { entry: Entry; color: string; meta?: 
 }
 
 function TempoPanel({ title, sub, entries, color, empty, note }: {
-  title: string; sub: string; entries: Entry[]; color: string; empty: string; note?: string
+  title: string; sub: string; entries: Entry[]; color: (e: Entry) => string; empty: string; note?: string
 }) {
   return (
     <div className="panel" style={{ padding: '1rem' }}>
