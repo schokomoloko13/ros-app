@@ -335,26 +335,26 @@ img { max-width: 100%; }
   .crumbs a, .crumbs span { font-size: 0.65rem !important; }
   .page-head { margin-bottom: 0.75rem !important; gap: 0.6rem; }
 
-  /* ── Dashboard: sechs KPI-Kacheln in EINER Reihe ──────────────────────
-     Bei 375px bleiben pro Kachel ~53px. Das geht nur, wenn alles Beiwerk
-     verschwindet: Subtext und Sparkline raus, Label und Wert einzeilig mit
-     Ellipsis statt Umbruch. */
-  .r-stats-6 { grid-template-columns: repeat(6, 1fr); gap: 0.35rem; }
-  .kpi-card { padding: 0.35rem 0.25rem; }
+  /* ── Dashboard: KPI-Kacheln zu dritt, also zwei Reihen ────────────────
+     Bei 375px sind das ~110px pro Kachel — genug für Label, Wert und die
+     Sparkline. Nur der Subtext bleibt draußen. */
+  .r-stats-6 { grid-template-columns: repeat(3, 1fr); gap: 0.4rem; }
+  .kpi-card { padding: 0.45rem 0.4rem; }
   .kpi-label {
-    font-size: 0.45rem !important;
-    letter-spacing: 0.01em !important;
-    margin-bottom: 1px !important;
+    font-size: 0.5rem !important;
+    letter-spacing: 0.02em !important;
+    margin-bottom: 2px !important;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .kpi-value {
-    font-size: 0.8rem;
+    font-size: 0.95rem;
     font-weight: 700;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  /* !important, weil beide Elemente ihr display inline setzen (flex bzw.
-     block) — eine normale Regel würde dagegen verlieren. */
-  .kpi-sub, .sparkline { display: none !important; }
+  /* !important, weil das Element sein display inline auf block setzt —
+     eine normale Regel würde dagegen verlieren. */
+  .kpi-sub { display: none !important; }
+  .sparkline { margin-top: 4px !important; }
 
   /* ── Dashboard: Filterleiste als eine scrollbare Zeile ───────────────── */
   .filterbar { flex-wrap: nowrap !important; gap: 0.4rem !important; margin-bottom: 0.75rem !important; }
