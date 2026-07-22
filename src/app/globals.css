@@ -588,3 +588,56 @@ img { max-width: 100%; }
   .ros-nav-brand { font-size: 0.7rem; }
   .ros-nav-link { font-size: 0.62rem; padding: 0.35rem 0.5rem; min-height: 38px; }
 }
+
+/* ── JARVIS Orb (Tages-Briefing auf dem Dashboard) ────────────────────── */
+.jarvis-wrap {
+  display: flex; align-items: center; gap: 1rem;
+  padding: 0.9rem 1rem; margin-bottom: 1.5rem;
+}
+.jarvis-orb {
+  position: relative; flex-shrink: 0;
+  width: 56px; height: 56px; border-radius: 50%;
+  border: 1px solid rgba(6, 182, 212, 0.45);
+  background: radial-gradient(circle at 50% 42%, rgba(6, 182, 212, 0.22), rgba(5, 10, 20, 0.9) 68%);
+  cursor: pointer; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.jarvis-orb:hover { border-color: #06b6d4; box-shadow: 0 0 18px rgba(6, 182, 212, 0.25); }
+.jarvis-orb::before {
+  content: ''; position: absolute; inset: -5px; border-radius: 50%;
+  border: 1px solid rgba(6, 182, 212, 0.25);
+}
+.jarvis-orb.speaking::before { animation: jarvis-ring 1.4s ease-out infinite; }
+.jarvis-orb.loading .jarvis-core { animation: jarvis-core 0.9s ease-in-out infinite; }
+.jarvis-core {
+  width: 16px; height: 16px; border-radius: 50%;
+  background: #06b6d4;
+  box-shadow: 0 0 10px rgba(6, 182, 212, 0.8), 0 0 26px rgba(6, 182, 212, 0.4);
+}
+.jarvis-orb.speaking .jarvis-core { animation: jarvis-core 0.7s ease-in-out infinite; }
+@keyframes jarvis-ring {
+  0%   { transform: scale(0.9); opacity: 0.9; }
+  100% { transform: scale(1.55); opacity: 0; }
+}
+@keyframes jarvis-core {
+  0%, 100% { transform: scale(1);    opacity: 1; }
+  50%      { transform: scale(1.35); opacity: 0.75; }
+}
+.jarvis-eq { display: inline-flex; align-items: flex-end; gap: 2px; height: 12px; }
+.jarvis-eq span {
+  width: 3px; background: #06b6d4; border-radius: 1px;
+  animation: jarvis-bar 0.8s ease-in-out infinite;
+}
+.jarvis-eq span:nth-child(1) { animation-delay: 0s; }
+.jarvis-eq span:nth-child(2) { animation-delay: 0.15s; }
+.jarvis-eq span:nth-child(3) { animation-delay: 0.3s; }
+.jarvis-eq span:nth-child(4) { animation-delay: 0.45s; }
+@keyframes jarvis-bar {
+  0%, 100% { height: 3px; }
+  50%      { height: 12px; }
+}
+@media (max-width: 768px) {
+  .jarvis-wrap { padding: 0.7rem 0.75rem; gap: 0.75rem; margin-bottom: 1rem; }
+  .jarvis-orb { width: 48px; height: 48px; }
+}
