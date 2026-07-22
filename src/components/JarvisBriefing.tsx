@@ -1,5 +1,6 @@
 'use client'
 
+import { usePathname } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 // JARVIS Panel v6 — echtes Sprach-Gespräch.
@@ -15,6 +16,7 @@ export default function JarvisBriefing() {
   const [stumm, setStumm] = useState(false)
   const [fehler, setFehler] = useState('')
 
+  const pfad = usePathname()
   const pcRef = useRef<RTCPeerConnection | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -45,7 +47,11 @@ export default function JarvisBriefing() {
     setFehler('')
     setZustand('verbinde')
     try {
-      const ticketRes = await fetch('/api/jarvis/realtime', { method: 'POST' })
+      const ticketRes = await fetch('/api/jarvis/realtime', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pfad }),
+      })
       const ticket = await ticketRes.json()
       if (!ticketRes.ok) throw new Error(ticket.error || 'Verbindung abgelehnt')
 
@@ -109,7 +115,7 @@ export default function JarvisBriefing() {
           : (e?.message ?? 'Verbindung fehlgeschlagen')
       )
     }
-  }, [aufraeumen])
+  }, [aufraeumen, pfad])
 
   const amKreis = () => {
     if (zustand === 'live' || zustand === 'verbinde') beenden()
@@ -128,32 +134,30 @@ export default function JarvisBriefing() {
   const aktiv = zustand === 'live'
 
   return (
-    <div className="panel jarvis-wrap">
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+    <div className="jarvis-float">
+      {zustand === 'fehler' && fehler && (
+        <span className="jarvis-float-fehler">{fehler}</span>
+      )}
+
+      {kannSprechen && aktiv && (
         <button
-          className={`jarvis-orb${spricht ? ' speaking' : ''}${zustand === 'verbinde' ? ' loading' : ''}`}
-          onClick={amKreis}
-          aria-label={aktiv ? 'Gespräch beenden' : 'Mit Jarvis sprechen'}
-          title={aktiv ? 'Gespräch beenden' : 'Mit Jarvis sprechen'}
+          className={`jarvis-mic${stumm ? '' : ' listening'}`}
+          onClick={amMikro}
+          aria-label={stumm ? 'Mikrofon einschalten' : 'Mikrofon stumm schalten'}
+          title={stumm ? 'Mikrofon ist aus' : 'Mikrofon ist an'}
         >
-          <span className="jarvis-core" />
+          {stumm ? '🔇' : '🎙'}
         </button>
+      )}
 
-        {kannSprechen && aktiv && (
-          <button
-            className={`jarvis-mic${stumm ? '' : ' listening'}`}
-            onClick={amMikro}
-            aria-label={stumm ? 'Mikrofon einschalten' : 'Mikrofon stumm schalten'}
-            title={stumm ? 'Mikrofon ist aus' : 'Mikrofon ist an'}
-          >
-            {stumm ? '🔇' : '🎙'}
-          </button>
-        )}
-
-        {zustand === 'fehler' && fehler && (
-          <span style={{ fontSize: '0.7rem', color: '#ef4444', lineHeight: 1.4 }}>{fehler}</span>
-        )}
-      </div>
+      <button
+        className={`jarvis-orb${spricht ? ' speaking' : ''}${zustand === 'verbinde' ? ' loading' : ''}`}
+        onClick={amKreis}
+        aria-label={aktiv ? 'Gespräch beenden' : 'Mit Jarvis sprechen'}
+        title={aktiv ? 'Gespräch beenden' : 'Mit Jarvis sprechen'}
+      >
+        <span className="jarvis-label">ROS</span>
+      </button>
     </div>
   )
 }

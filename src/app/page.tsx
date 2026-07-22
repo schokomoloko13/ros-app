@@ -2,7 +2,6 @@ import { createClient } from '@supabase/supabase-js'
 import Link from 'next/link'
 import { Suspense } from 'react'
 import FilterBar from './FilterBar'
-import JarvisBriefing from '@/components/JarvisBriefing'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -265,8 +264,6 @@ export default async function Dashboard({ searchParams }: { searchParams: Search
         </div>
       </div>
 
-      {/* Jarvis Tages-Briefing */}
-      <JarvisBriefing />
 
       {/* KPIs */}
       <div className="r-stats-6" style={{ marginBottom: '1.5rem' }}>

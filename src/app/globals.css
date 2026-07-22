@@ -680,3 +680,59 @@ img { max-width: 100%; }
 
 /* ── JARVIS Hinweiszeilen ─────────────────────────────────────────────── */
 .jarvis-hint { font-size: 0.62rem; margin-top: 0.4rem; line-height: 1.5; }
+
+/* ── Jarvis schwebt auf jeder Seite ────────────────────────────────────── */
+.jarvis-float {
+  position: fixed;
+  right: 1rem;
+  bottom: calc(1rem + env(safe-area-inset-bottom));
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* halbe Größe gegenüber dem alten Panel-Orb */
+.jarvis-float .jarvis-orb {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+}
+
+.jarvis-float .jarvis-label {
+  font-size: 0.4rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  color: #06b6d4;
+}
+
+.jarvis-float .jarvis-orb.speaking .jarvis-label,
+.jarvis-float .jarvis-orb.loading .jarvis-label {
+  animation: jarvis-core 0.8s ease-in-out infinite;
+}
+
+.jarvis-float .jarvis-mic {
+  width: 30px;
+  height: 30px;
+  font-size: 0.72rem;
+}
+
+.jarvis-float-fehler {
+  max-width: 15rem;
+  padding: 0.35rem 0.55rem;
+  border-radius: 0.4rem;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  color: #ef4444;
+  font-size: 0.6rem;
+  line-height: 1.4;
+}
+
+@media (max-width: 640px) {
+  .jarvis-float .jarvis-orb,
+  .jarvis-float .jarvis-mic { width: 26px; height: 26px; }
+  .jarvis-float .jarvis-label { font-size: 0.34rem; }
+  .jarvis-float .jarvis-mic { font-size: 0.62rem; }
+}

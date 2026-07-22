@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { categoryLabel } from '@/lib/expenses'
 
 // Kompakte Bestands-Momentaufnahme für Jarvis. Wird vom Sprach-Gespräch
 // (realtime) und vom getippten Gespräch (talk) gemeinsam genutzt.
@@ -71,11 +72,48 @@ export function buildSnapshot(all: any[]): string {
   return snap
 }
 
+// Ausgabenseite, damit Jarvis auch auf /finanzen etwas zu sagen hat.
+export function buildExpenses(all: any[]): string {
+  const euro = (n: number) => Number(n).toLocaleString('de-DE', { maximumFractionDigits: 0 })
+  const summe = (rows: any[]) => rows.reduce((s, e) => s + Number(e.amount ?? 0), 0)
+
+  const jetzt = new Date()
+  const monatsStart = new Date(jetzt.getFullYear(), jetzt.getMonth(), 1).toISOString().slice(0, 10)
+  const monat = all.filter(e => String(e.expense_date ?? '') >= monatsStart)
+
+  const lines: string[] = []
+  lines.push(`AUSGABEN DIESEN MONAT: ${euro(summe(monat))} € in ${monat.length} Buchungen`)
+
+  const proKategorie = new Map<string, number>()
+  for (const e of monat) {
+    const k = categoryLabel(String(e.category ?? 'sonstiges'))
+    proKategorie.set(k, (proKategorie.get(k) ?? 0) + Number(e.amount ?? 0))
+  }
+  for (const [k, v] of [...proKategorie].sort((a, b) => b[1] - a[1])) {
+    lines.push(`- ${k}: ${euro(v)} €`)
+  }
+
+  const letzte = all.slice(0, 10)
+  lines.push(`LETZTE BUCHUNGEN: ${letzte.length ? '' : 'keine'}`)
+  for (const e of letzte) {
+    const notiz = String(e.note ?? '').slice(0, 40)
+    lines.push(`- ${e.expense_date ?? '?'} · ${categoryLabel(String(e.category ?? ''))} · ${euro(Number(e.amount ?? 0))} €${notiz ? ' · ' + notiz : ''}`)
+  }
+  return lines.join('\n')
+}
+
 export async function loadSnapshot(): Promise<string> {
-  const { data: items } = await supabase
-    .from('items')
-    .select('name, brand, status, target_price, sold_price, sold_at, listed_at, purchase_date, created_at')
-    .order('created_at', { ascending: false })
-    .limit(400)
-  return buildSnapshot(items || [])
+  const [items, expenses] = await Promise.all([
+    supabase
+      .from('items')
+      .select('name, brand, status, target_price, sold_price, sold_at, listed_at, purchase_date, created_at')
+      .order('created_at', { ascending: false })
+      .limit(400),
+    supabase
+      .from('expenses')
+      .select('amount, category, note, expense_date')
+      .order('expense_date', { ascending: false })
+      .limit(400),
+  ])
+  return `${buildSnapshot(items.data || [])}\n\n${buildExpenses(expenses.data || [])}`
 }

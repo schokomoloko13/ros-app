@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { loadSnapshot } from '../snapshot'
 
 // JARVIS Sprach-Gespräch (/api/jarvis/realtime) — stellt ein Kurzzeit-Ticket aus.
@@ -8,7 +8,26 @@ import { loadSnapshot } from '../snapshot'
 export const dynamic = 'force-dynamic'
 
 const MODEL = process.env.OPENAI_REALTIME_MODEL ?? 'gpt-realtime-2.1-mini'
-const VOICE = process.env.OPENAI_REALTIME_VOICE ?? 'cedar'
+const VOICE = process.env.OPENAI_REALTIME_VOICE ?? 'ash'
+
+// Jarvis schwebt auf jeder Seite mit — er soll wissen, wo Roberto gerade steht.
+const SEITEN: Record<string, string> = {
+  '/': 'dem Command Center (Tagesüberblick)',
+  '/inventory': 'der Bestandsliste',
+  '/finanzen': 'der Finanzseite (Ausgaben, Umsatz, Monatslauf)',
+  '/tempo': 'der Tempo-Seite (Schnellseller und Ladenhüter)',
+  '/matrix': 'der Plattform-Matrix',
+  '/capture': 'dem Anlegen eines neuen Artikels',
+  '/schaufenster': 'dem Schaufenster',
+}
+
+function seitenHinweis(pfad: string): string {
+  if (pfad.startsWith('/items/')) {
+    return 'Roberto ist gerade bei einem einzelnen Artikel. Fragen zu "diesem Artikel" beziehen sich wahrscheinlich darauf.'
+  }
+  const ort = SEITEN[pfad]
+  return ort ? `Roberto ist gerade auf ${ort}. Beziehe dich darauf, wenn er ohne Nennung "hier" oder "das" sagt.` : ''
+}
 
 const SYSTEM = `Du bist J.A.R.V.I.S., das Betriebssystem von Robertos Uhren-Resale-Geschäft (R.O.S.). Du sprichst mit Roberto.
 
@@ -23,13 +42,20 @@ So klingst du:
 Regeln:
 - Nutze NUR die Daten unten. Was da nicht steht, weißt du nicht — dann sag das kurz.
 - Wenn Roberto dich unterbricht, hör sofort auf und geh auf das Neue ein.
-- Eröffne das Gespräch von dir aus mit einem knappen Tages-Briefing: was heute wichtig ist, in zwei bis drei Sätzen. Danach wartest du auf seine Fragen.`
+- Du bist auf jeder Seite der App erreichbar und hilfst überall: Bestand, Verkäufe, Ladenhüter, Ausgaben und Finanz-Zusammenfassungen.
+- Eröffne das Gespräch von dir aus mit zwei bis drei Sätzen zu dem, was auf der Seite gerade relevant ist, auf der Roberto steht. Danach wartest du auf seine Fragen.`
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   const key = process.env.OPENAI_API_KEY
   if (!key) {
     return NextResponse.json({ error: 'OPENAI_API_KEY fehlt.' }, { status: 500 })
   }
+
+  let pfad = '/'
+  try {
+    const body = await req.json()
+    pfad = String(body?.pfad ?? '/').slice(0, 120)
+  } catch { /* ohne Angabe bleibt es das Command Center */ }
 
   const snapshot = await loadSnapshot()
   const heute = new Date().toLocaleDateString('de-DE', {
@@ -43,7 +69,7 @@ export async function POST() {
       session: {
         type: 'realtime',
         model: MODEL,
-        instructions: `${SYSTEM}\n\nHEUTE IST ${heute}.\n\nAKTUELLE DATEN (Stand jetzt):\n${snapshot}`,
+        instructions: `${SYSTEM}\n\nHEUTE IST ${heute}.\n${seitenHinweis(pfad)}\n\nAKTUELLE DATEN (Stand jetzt):\n${snapshot}`,
         audio: {
           input: {
             // Satzende erkennt der Server selbst — kein zweiter Mikro-Klick nötig.

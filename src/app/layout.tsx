@@ -1,6 +1,7 @@
 import { JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 import NavBar from '../components/NavBar'
+import JarvisBriefing from '../components/JarvisBriefing'
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
@@ -25,6 +26,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={jetbrainsMono.className}>
         <NavBar />
         {children}
+        <JarvisBriefing />
       </body>
     </html>
   )
