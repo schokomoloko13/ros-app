@@ -16,7 +16,7 @@ export default function JarvisBriefing() {
   const [stumm, setStumm] = useState(false)
   const [fehler, setFehler] = useState('')
 
-  const pfad = usePathname()
+  const pfad = usePathname() || '/'
   const pcRef = useRef<RTCPeerConnection | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -130,6 +130,16 @@ export default function JarvisBriefing() {
   }
 
   useEffect(() => aufraeumen, [aufraeumen])
+
+  // /schaufenster ist die Kundenansicht — dort hat Jarvis nichts verloren.
+  // Ein laufendes Gespräch wird beendet, sonst bliebe das Mikrofon offen,
+  // während ein Kunde auf die Seite schaut.
+  const imSchaufenster = pfad.startsWith('/schaufenster')
+  useEffect(() => {
+    if (imSchaufenster) beenden()
+  }, [imSchaufenster, beenden])
+
+  if (imSchaufenster) return null
 
   const aktiv = zustand === 'live'
 
