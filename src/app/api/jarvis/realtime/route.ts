@@ -1,6 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 import { loadSnapshot } from '../snapshot'
 import { JARVIS_WERKZEUGE, WERKZEUG_REGELN } from '../werkzeuge'
+
+async function loadTodaysBriefing(): Promise<string | null> {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  )
+  const today = new Date().toISOString().slice(0, 10)
+  const { data } = await supabase
+    .from('jarvis_briefings')
+    .select('text')
+    .eq('briefing_date', today)
+    .maybeSingle()
+  return data?.text ?? null
+}
 
 // JARVIS Sprach-Gespräch (/api/jarvis/realtime) — stellt ein Kurzzeit-Ticket aus.
 // Der Browser baut damit eine direkte WebRTC-Audioleitung zu OpenAI auf: Sprache
@@ -58,10 +74,14 @@ export async function POST(req: NextRequest) {
     pfad = String(body?.pfad ?? '/').slice(0, 120)
   } catch { /* ohne Angabe bleibt es das Command Center */ }
 
-  const snapshot = await loadSnapshot()
+  const [snapshot, briefing] = await Promise.all([loadSnapshot(), loadTodaysBriefing()])
   const heute = new Date().toLocaleDateString('de-DE', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   })
+
+  const briefingBlock = briefing
+    ? `\n\nTAGES-BRIEFING (heute von dir vorbereitet — damit das Gespräch eröffnen, kurz und direkt):\n${briefing}`
+    : ''
 
   const res = await fetch('https://api.openai.com/v1/realtime/client_secrets', {
     method: 'POST',
@@ -70,7 +90,7 @@ export async function POST(req: NextRequest) {
       session: {
         type: 'realtime',
         model: MODEL,
-        instructions: `${SYSTEM}\n${WERKZEUG_REGELN}\n\nHEUTE IST ${heute}.\n${seitenHinweis(pfad)}\n\nAKTUELLE DATEN (Stand jetzt):\n${snapshot}`,
+        instructions: `${SYSTEM}\n${WERKZEUG_REGELN}\n\nHEUTE IST ${heute}.\n${seitenHinweis(pfad)}${briefingBlock}\n\nAKTUELLE DATEN (Stand jetzt):\n${snapshot}`,
         tools: JARVIS_WERKZEUGE,
         tool_choice: 'auto',
         audio: {
