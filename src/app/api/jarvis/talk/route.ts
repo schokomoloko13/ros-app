@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { extractText, generateContent, modelChain } from '../gemini'
 
 // JARVIS Gespräch (/api/jarvis/talk) — freie Konversation mit Live-Daten.
 // Nimmt eine Frage (Sprache oder Text), baut eine kompakte Bestands-Momentaufnahme
@@ -12,7 +13,7 @@ const supabase = createClient(
 
 export const dynamic = 'force-dynamic'
 
-const MODEL = process.env.GEMINI_MODEL ?? 'gemini-2.0-flash'
+const MODELS = modelChain(process.env.GEMINI_MODEL, ['gemini-3.5-flash', 'gemini-2.5-flash'])
 const DAY = 86_400_000
 
 const SYSTEM = `Du bist J.A.R.V.I.S. — Just A Rather Very Intelligent System — das Betriebssystem von Robertos Uhren-Resale-Geschaeft (R.O.S.).
@@ -119,23 +120,28 @@ export async function POST(req: NextRequest) {
     { role: 'user', parts: [{ text: message }] },
   ]
 
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: `${SYSTEM}\n\nAKTUELLE DATEN (Stand jetzt):\n${snapshot}` }] },
-      contents,
-      generationConfig: { temperature: 0.7, maxOutputTokens: 320 },
-    }),
+  const { res, model } = await generateContent(MODELS, key, {
+    systemInstruction: { parts: [{ text: `${SYSTEM}\n\nAKTUELLE DATEN (Stand jetzt):\n${snapshot}` }] },
+    contents,
+    generationConfig: {
+      temperature: 0.7,
+      maxOutputTokens: 320,
+      // Gemini 3.x denkt sonst laut und frisst das Token-Budget auf, bevor die
+      // eigentliche Antwort kommt. Drei Butler-Sätze brauchen kein Nachdenken.
+      thinkingConfig: { thinkingBudget: 0 },
+    },
   })
 
   if (!res.ok) {
     const detail = await res.text().catch(() => '')
-    return NextResponse.json({ error: `Gemini-Fehler ${res.status}: ${detail.slice(0, 300)}` }, { status: 502 })
+    return NextResponse.json(
+      { error: `Gemini-Fehler ${res.status} (${model}): ${detail.slice(0, 300)}` },
+      { status: 502 }
+    )
   }
 
   const json = await res.json()
-  let reply: string = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+  let reply = extractText(json)
   if (!reply) return NextResponse.json({ error: 'Keine Antwort vom Modell.' }, { status: 502 })
 
   let link: string | null = null

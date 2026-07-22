@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { extractText, generateContent, modelChain } from '../gemini'
 
 // JARVIS Gehör (/api/jarvis/listen) — Audio → Text über Gemini.
 // Browser-unabhängig (kein Chrome-Sprachdienst nötig), läuft auch auf iOS.
 // Nimmt base64-Audio (webm/opus oder mp4/aac), gibt das Transkript zurück.
 export const dynamic = 'force-dynamic'
 
-const MODEL = process.env.GEMINI_MODEL ?? 'gemini-2.0-flash'
+const MODELS = modelChain(process.env.GEMINI_MODEL, ['gemini-3.5-flash', 'gemini-2.5-flash'])
 
 const PROMPT = 'Du bekommst eine deutsche Sprachnachricht. Transkribiere sie wörtlich. Antworte ausschließlich mit dem gesprochenen Text, ohne Anführungszeichen und ohne Kommentar. Wenn nichts Verständliches gesagt wurde, antworte genau mit: [unverstaendlich]'
 
@@ -29,30 +30,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Aufnahme zu lang.' }, { status: 413 })
   }
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-      body: JSON.stringify({
-        contents: [{
-          parts: [
-            { inlineData: { mimeType: mime, data: audio } },
-            { text: PROMPT },
-          ],
-        }],
-        generationConfig: { temperature: 0, maxOutputTokens: 300 },
-      }),
-    }
-  )
+  const { res, model } = await generateContent(MODELS, key, {
+    contents: [{
+      parts: [
+        { inlineData: { mimeType: mime, data: audio } },
+        { text: PROMPT },
+      ],
+    }],
+    generationConfig: {
+      temperature: 0,
+      maxOutputTokens: 300,
+      // Transkribieren ist Fleißarbeit — Nachdenken kostet nur Zeit und Token-Budget.
+      thinkingConfig: { thinkingBudget: 0 },
+    },
+  })
 
   if (!res.ok) {
     const detail = await res.text().catch(() => '')
-    return NextResponse.json({ error: `Hör-Fehler ${res.status}: ${detail.slice(0, 300)}` }, { status: 502 })
+    return NextResponse.json(
+      { error: `Hör-Fehler ${res.status} (${model}): ${detail.slice(0, 300)}` },
+      { status: 502 }
+    )
   }
 
   const json = await res.json()
-  const transcript: string = (json?.candidates?.[0]?.content?.parts?.[0]?.text ?? '').trim()
+  const transcript = extractText(json)
   if (!transcript || transcript === '[unverstaendlich]') {
     return NextResponse.json({ transcript: '' })
   }

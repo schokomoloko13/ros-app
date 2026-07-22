@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { extractAudio, generateContent, modelChain } from '../gemini'
 
-// JARVIS Stimme v2 (/api/jarvis/speak) — Text → natürliche Sprache (WAV).
+// JARVIS Stimme v3 (/api/jarvis/speak) — Text → natürliche Sprache (WAV).
 // Akzentfreies Hochdeutsch per Stil-Anweisung. Stimme kommt vom Client
 // (Whitelist) oder aus GEMINI_TTS_VOICE, Standard: Charon.
+// Modell auf niedrige Latenz optimiert — der Client schickt kurze Satz-Chunks.
 export const dynamic = 'force-dynamic'
 
-const TTS_MODEL = process.env.GEMINI_TTS_MODEL ?? 'gemini-2.5-flash-preview-tts'
+const TTS_MODELS = modelChain(process.env.GEMINI_TTS_MODEL, [
+  'gemini-3.1-flash-tts-preview',
+  'gemini-2.5-flash-preview-tts',
+])
 const DEFAULT_VOICE = process.env.GEMINI_TTS_VOICE ?? 'Charon'
 const ALLOWED_VOICES = ['Charon', 'Fenrir', 'Orus', 'Kore', 'Algieba']
 
@@ -47,36 +52,33 @@ export async function POST(req: NextRequest) {
   const reqVoice = String(body?.voice ?? '')
   const voice = ALLOWED_VOICES.includes(reqVoice) ? reqVoice : DEFAULT_VOICE
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${TTS_MODEL}:generateContent`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: STYLE + text }] }],
-        generationConfig: {
-          responseModalities: ['AUDIO'],
-          speechConfig: {
-            voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } },
-          },
-        },
-      }),
-    }
-  )
+  const { res, model } = await generateContent(TTS_MODELS, key, {
+    contents: [{ parts: [{ text: STYLE + text }] }],
+    generationConfig: {
+      responseModalities: ['AUDIO'],
+      speechConfig: {
+        voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } },
+      },
+    },
+  })
 
   if (!res.ok) {
     const detail = await res.text().catch(() => '')
-    return NextResponse.json({ error: `TTS-Fehler ${res.status}: ${detail.slice(0, 300)}` }, { status: 502 })
+    return NextResponse.json(
+      { error: `TTS-Fehler ${res.status} (${model}): ${detail.slice(0, 300)}` },
+      { status: 502 }
+    )
   }
 
   const json = await res.json()
-  const part = json?.candidates?.[0]?.content?.parts?.[0]
-  const b64: string | undefined = part?.inlineData?.data ?? part?.inline_data?.data
-  if (!b64) {
+  const audio = extractAudio(json)
+  if (!audio) {
     return NextResponse.json({ error: 'Kein Audio vom Modell.' }, { status: 502 })
   }
 
-  const wav = pcmToWav(Buffer.from(b64, 'base64'))
+  // Gemini liefert rohes PCM, Samplerate steckt im MIME-Typ: "audio/L16;rate=24000".
+  const rate = Number(audio.mime.match(/rate=(\d+)/)?.[1]) || 24000
+  const wav = pcmToWav(Buffer.from(audio.data, 'base64'), rate)
   return new NextResponse(new Uint8Array(wav), {
     headers: {
       'Content-Type': 'audio/wav',

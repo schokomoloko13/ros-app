@@ -2,9 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-// JARVIS Panel v4 —
-// Sprechen: Gemini TTS (Butler-Stimme, wählbar) mit Sprech-Sperre gegen Überlagerung.
-// Hören: MediaRecorder → Gemini-Transkription (kein Chrome-Sprachdienst, läuft auch iOS).
+// JARVIS Panel v5 —
+// Sprechen: Gemini TTS in Satz-Chunks. Chunk 1 wird sofort abgespielt, während die
+//   nächsten im Hintergrund gerendert werden → erste Stimme nach ~1–2 s statt nach dem
+//   kompletten Briefing. Sprech-Sperre + Sequenz-Token verhindern den Kanon.
+// Hören: MediaRecorder → Gemini-Transkription, Satzende per RMS-Lautstärkeanalyse
+//   (AudioContext + AnalyserNode) — kein zweiter Klick nötig.
 // Auto: 2× täglich (morgens / ab 22 Uhr), Browser-Autoplay wird per Gesten-Falle umschifft.
 type Phase = 'idle' | 'loading' | 'ready' | 'speaking' | 'listening' | 'thinking' | 'error'
 type Msg = { role: 'user' | 'jarvis'; text: string; link?: string | null }
@@ -27,6 +30,52 @@ function pickGermanVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice |
     null
   )
 }
+
+// Text in Sprech-Häppchen zerlegen. Der erste Chunk ist bewusst kurz, damit die
+// Stimme früh startet; danach 1–2 Sätze pro Chunk (weniger Schnittstellen im Klang).
+// Kein Lookbehind im Regex — das kennen ältere iOS-Safaris nicht.
+function splitChunks(text: string): string[] {
+  const clean = text.replace(/\s+/g, ' ').trim()
+  const sentences: string[] = []
+  let cur = ''
+  for (let i = 0; i < clean.length; i++) {
+    cur += clean[i]
+    if (!'.!?…'.includes(clean[i])) continue
+    // Punkt nach einer Ziffer ist meistens ein Datum ("22. Juli") — kein Satzende.
+    if (clean[i] === '.' && /\d/.test(clean[i - 1] ?? '')) continue
+    // Nur trennen, wenn wirklich ein neuer Satz folgt (oder der Text zu Ende ist).
+    const rest = clean.slice(i + 1)
+    if (rest.trim() && !/^ *["»„]?[A-ZÄÖÜ]/.test(rest)) continue
+    sentences.push(cur)
+    cur = ''
+  }
+  if (cur.trim()) sentences.push(cur)
+
+  const chunks: string[] = []
+  let buf = ''
+  const flush = () => { if (buf.trim()) chunks.push(buf.trim()); buf = '' }
+  for (const s of sentences) {
+    const part = s.trim()
+    if (!part) continue
+    buf = buf ? `${buf} ${part}` : part
+    // Rampe: erster Chunk ein Satz (startet nach ~2 s), dann wachsend. Rendern ist
+    // pro Zeichen schneller als Sprechen — kurze Anfangs-Chunks holen den Vorsprung,
+    // danach dürfen die Häppchen größer werden, ohne dass eine Pause entsteht.
+    const RAMPE = [1, 1, 120, 220]
+    const limit = RAMPE[Math.min(chunks.length, RAMPE.length - 1)]
+    if (buf.length >= limit) flush()
+  }
+  flush()
+  return chunks.map(c => c.slice(0, 1400))
+}
+
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
+
+// ── Satzende-Erkennung ───────────────────────────────────────────────────
+const VAD_STEP = 50        // ms zwischen zwei Messungen
+const VAD_CALIBRATE = 400  // ms Grundrauschen des Raums messen
+const VAD_SPEECH_ON = 200  // ms über der Schwelle, bevor „Sprache" gilt
+const VAD_SILENCE = 1400   // ms Stille nach Sprache → Aufnahme beenden
 
 const slotNow = (): 'abend' | 'morgen' => (new Date().getHours() >= 22 ? 'abend' : 'morgen')
 const todayStr = () => new Date().toISOString().slice(0, 10)
@@ -57,10 +106,15 @@ export default function JarvisBriefing() {
   const voiceSelRef = useRef('Charon')
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const speakLock = useRef(false)
+  // Sequenz-Token: jeder Stopp/Neustart hebt ihn — laufende Chunk-Queues erkennen daran,
+  // dass sie nicht mehr zuständig sind, und schweigen.
+  const speakSeq = useRef(0)
   const mrRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
   const sendRef = useRef(true)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const acRef = useRef<AudioContext | null>(null)
+  const vadRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const supported = typeof window !== 'undefined' && 'speechSynthesis' in window
   const canListen = typeof window !== 'undefined'
@@ -74,9 +128,17 @@ export default function JarvisBriefing() {
   }, [supported])
 
   const stopAllAudio = useCallback(() => {
+    speakSeq.current += 1 // laufende Chunk-Queue für ungültig erklären
     if (supported) window.speechSynthesis.cancel()
     try { audioRef.current?.pause() } catch { /* egal */ }
+    audioRef.current = null
   }, [supported])
+
+  const stopVad = useCallback(() => {
+    if (vadRef.current) { clearInterval(vadRef.current); vadRef.current = null }
+    try { acRef.current?.close() } catch { /* egal */ }
+    acRef.current = null
+  }, [])
 
   // ── Stimmen (Ausgabe) ──────────────────────────────────────────────────
   const speakBrowser = useCallback((say: string) => {
@@ -93,41 +155,91 @@ export default function JarvisBriefing() {
     window.speechSynthesis.speak(u)
   }, [supported])
 
-  const speakCloud = useCallback(async (say: string): Promise<'played' | 'blocked' | 'failed'> => {
+  // Einen Chunk rendern lassen. Läuft im Hintergrund, während vorher gesprochen wird.
+  const fetchTts = useCallback(async (say: string): Promise<Blob | null> => {
     try {
       const res = await fetch('/api/jarvis/speak', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: say, voice: voiceSelRef.current }),
       })
-      if (!res.ok) return 'failed'
-      const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const audio = new Audio(url)
-      audioRef.current = audio
-      audio.onended = () => { setPhase('ready'); URL.revokeObjectURL(url) }
-      audio.onerror = () => { setPhase('ready'); URL.revokeObjectURL(url) }
-      await audio.play()
-      setPhase('speaking')
-      return 'played'
+      if (!res.ok) return null
+      return await res.blob()
     } catch {
-      return 'blocked'
+      return null
     }
   }, [])
 
-  // Sprech-Sperre: nie zwei Stimmen gleichzeitig (Kanon-Fix).
+  // Einen Chunk abspielen und warten, bis er durch ist (oder abgebrochen wurde).
+  const playChunk = useCallback((blob: Blob, seq: number) =>
+    new Promise<'played' | 'blocked' | 'stopped'>(resolve => {
+      const url = URL.createObjectURL(blob)
+      const audio = new Audio(url)
+      audioRef.current = audio
+      let done = false
+      const finish = (r: 'played' | 'blocked' | 'stopped') => {
+        if (done) return
+        done = true
+        URL.revokeObjectURL(url)
+        resolve(r)
+      }
+      audio.onended = () => finish('played')
+      audio.onerror = () => finish('stopped')
+      audio.onpause = () => finish('stopped') // greift beim Stopp per stopAllAudio
+      audio.play().then(() => {
+        if (speakSeq.current !== seq) { audio.pause(); return }
+        setPhase('speaking')
+      }).catch(() => finish('blocked'))
+    }), [])
+
+  // Sprech-Sperre: nie zwei Stimmen gleichzeitig (Kanon-Fix). Die Queue ist der
+  // einzige Sprech-Pfad — ein neuer Aufruf bricht den alten ab und übernimmt.
   const speakSmart = useCallback(async (say: string): Promise<'played' | 'blocked' | 'failed'> => {
-    if (!say || speakLock.current) return 'failed'
+    const full = (say ?? '').trim()
+    if (!full) return 'failed'
+
+    stopAllAudio()
+    const mySeq = speakSeq.current
+    // Die alte Queue merkt den Abbruch sofort — kurz auf das Freiwerden der Sperre warten.
+    for (let i = 0; i < 100 && speakLock.current; i++) await sleep(20)
+    if (speakSeq.current !== mySeq || speakLock.current) return 'failed'
     speakLock.current = true
+
     try {
-      stopAllAudio()
-      const r = await speakCloud(say)
-      if (r === 'failed') speakBrowser(say)
-      return r
+      const chunks = splitChunks(full)
+      if (!chunks.length) return 'failed'
+
+      const jobs: Array<Promise<Blob | null> | undefined> = []
+      const prefetch = (i: number) => {
+        if (i < chunks.length && !jobs[i]) jobs[i] = fetchTts(chunks[i])
+      }
+      prefetch(0)
+      prefetch(1)
+
+      let first: 'played' | 'blocked' | 'failed' = 'failed'
+      for (let i = 0; i < chunks.length; i++) {
+        if (speakSeq.current !== mySeq) return first
+        prefetch(i)
+        // Nur einen Chunk vorausrendern: mehr parallele TTS-Anfragen bremsen sich
+        // gegenseitig aus, und der Nachschub käme später als der aktuelle Chunk endet.
+        prefetch(i + 1)
+        const blob = await jobs[i]!
+        if (speakSeq.current !== mySeq) return first
+        if (!blob) {
+          // TTS-API weg → Browser-Stimme als letzter Fallback.
+          if (i === 0) { speakBrowser(full); return 'failed' }
+          break
+        }
+        const r = await playChunk(blob, mySeq)
+        if (i === 0) first = r === 'stopped' ? 'failed' : r
+        if (r !== 'played') break
+      }
+      if (speakSeq.current === mySeq) setPhase('ready')
+      return first
     } finally {
       speakLock.current = false
     }
-  }, [speakCloud, speakBrowser, stopAllAudio])
+  }, [fetchTts, playChunk, speakBrowser, stopAllAudio])
 
   // ── Briefing ───────────────────────────────────────────────────────────
   const fetchBriefing = useCallback(async (slot: 'abend' | 'morgen'): Promise<string> => {
@@ -198,6 +310,8 @@ export default function JarvisBriefing() {
       stopAllAudio()
       try { mrRef.current?.stop() } catch { /* egal */ }
       if (timerRef.current) clearTimeout(timerRef.current)
+      if (vadRef.current) clearInterval(vadRef.current)
+      try { acRef.current?.close() } catch { /* egal */ }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -268,12 +382,13 @@ export default function JarvisBriefing() {
       mr.onstop = async () => {
         stream.getTracks().forEach(t => t.stop())
         if (timerRef.current) clearTimeout(timerRef.current)
+        stopVad()
         const blob = new Blob(chunksRef.current, { type: mr.mimeType || 'audio/webm' })
         chunksRef.current = []
         if (!sendRef.current) { setPhase('ready'); return }
         if (blob.size < 500) {
           setPhase('ready')
-          setMicHint('Aufnahme zu kurz — nach dem Klick sprechen, dann erneut tippen zum Senden.')
+          setMicHint('Nichts gehört — Mikro antippen und einfach lossprechen.')
           return
         }
         setPhase('thinking')
@@ -299,6 +414,51 @@ export default function JarvisBriefing() {
         }
       }
 
+      // ── Satzende-Erkennung: RMS-Pegel überwachen, nach Sprache + Stille stoppen ──
+      const AC: typeof AudioContext | undefined =
+        window.AudioContext ?? (window as any).webkitAudioContext
+      if (AC) {
+        try {
+          const ac = new AC()
+          acRef.current = ac
+          const analyser = ac.createAnalyser()
+          analyser.fftSize = 1024
+          ac.createMediaStreamSource(stream).connect(analyser)
+          const buf = new Float32Array(analyser.fftSize)
+
+          let floor = 0.006 // Grundrauschen, wird in den ersten 400 ms gemessen
+          let calibrated = 0
+          let speech = false
+          let loudMs = 0
+          let quietMs = 0
+
+          vadRef.current = setInterval(() => {
+            analyser.getFloatTimeDomainData(buf)
+            let sum = 0
+            for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i]
+            const rms = Math.sqrt(sum / buf.length)
+
+            if (calibrated < VAD_CALIBRATE) {
+              calibrated += VAD_STEP
+              floor = Math.max(floor, rms)
+              return
+            }
+
+            // Hysterese: Einschalten deutlich über dem Raumpegel, Ausschalten darunter.
+            const on = Math.max(0.015, floor * 2.5)
+            const off = on * 0.6
+
+            if (!speech) {
+              loudMs = rms > on ? loudMs + VAD_STEP : 0
+              if (loudMs >= VAD_SPEECH_ON) { speech = true; quietMs = 0 }
+              return
+            }
+            quietMs = rms < off ? quietMs + VAD_STEP : 0
+            if (quietMs >= VAD_SILENCE) stopRecording(true)
+          }, VAD_STEP)
+        } catch { /* ohne VAD bleibt der manuelle Stopp per Mikro-Klick */ }
+      }
+
       sendRef.current = true
       mr.start()
       setPhase('listening')
@@ -309,7 +469,7 @@ export default function JarvisBriefing() {
         ? 'Mikrofon blockiert — im Browser auf das Schloss-Symbol tippen → Mikrofon erlauben. Mac: Systemeinstellungen → Datenschutz → Mikrofon → Browser anhaken.'
         : `Mikro-Fehler: ${e?.message ?? e?.name ?? 'unbekannt'}`)
     }
-  }, [canListen, phase, ask, stopAllAudio, stopRecording])
+  }, [canListen, phase, ask, stopAllAudio, stopRecording, stopVad])
 
   // ── UI-Aktionen ────────────────────────────────────────────────────────
   const onOrb = () => {
@@ -433,7 +593,7 @@ export default function JarvisBriefing() {
             className={`jarvis-mic${phase === 'listening' ? ' listening' : ''}`}
             onClick={listen}
             aria-label="Mit Jarvis sprechen"
-            title={phase === 'listening' ? 'Aufnahme läuft — tippen zum Senden' : 'Mikro antippen, sprechen, erneut tippen'}
+            title={phase === 'listening' ? 'Ich höre — einfach aufhören zu sprechen' : 'Mikro antippen und lossprechen'}
           >
             🎙
           </button>
@@ -443,7 +603,7 @@ export default function JarvisBriefing() {
           style={{ flex: '1 1 auto', width: 'auto' }}
           placeholder={
             phase === 'listening'
-              ? '● Aufnahme läuft — 🎙 erneut tippen zum Senden'
+              ? 'Ich höre …'
               : (canListen ? 'Oder hier tippen: „Wie lange ist die Datejust online?"' : 'Frage an Jarvis tippen …')
           }
           value={input}
