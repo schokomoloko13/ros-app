@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+
+export const revalidate = 30
 import StatusActions from './StatusActions'
 import AiWearPhotoButton from './AiWearPhotoButton'
 import ImageGallery from './ImageGallery'

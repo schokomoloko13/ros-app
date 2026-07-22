@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import Link from 'next/link'
 import InventoryControls from './InventoryControls'
+import { thumb } from '@/lib/storage'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -116,7 +117,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Se
                   <div style={{ aspectRatio: '1', background: '#0a1120', position: 'relative', overflow: 'hidden' }}>
                     {imgUrl ? (
                       <img
-                        src={imgUrl}
+                        src={thumb(imgUrl, 300) ?? imgUrl}
                         alt=""
                         style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                         loading="lazy"

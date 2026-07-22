@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import Link from 'next/link'
 import { Suspense } from 'react'
 import FilterBar from './FilterBar'
+import { thumb } from '@/lib/storage'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -311,7 +312,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Search
                     }}>
                       {primaryImage ? (
                         <img
-                          src={primaryImage}
+                          src={thumb(primaryImage, 96) ?? primaryImage}
                           alt=""
                           style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                           loading="lazy"
