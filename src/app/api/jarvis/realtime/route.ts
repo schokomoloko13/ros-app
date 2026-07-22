@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { loadSnapshot } from '../snapshot'
+import { JARVIS_WERKZEUGE, WERKZEUG_REGELN } from '../werkzeuge'
 
 // JARVIS Sprach-Gespräch (/api/jarvis/realtime) — stellt ein Kurzzeit-Ticket aus.
 // Der Browser baut damit eine direkte WebRTC-Audioleitung zu OpenAI auf: Sprache
@@ -69,7 +70,9 @@ export async function POST(req: NextRequest) {
       session: {
         type: 'realtime',
         model: MODEL,
-        instructions: `${SYSTEM}\n\nHEUTE IST ${heute}.\n${seitenHinweis(pfad)}\n\nAKTUELLE DATEN (Stand jetzt):\n${snapshot}`,
+        instructions: `${SYSTEM}\n${WERKZEUG_REGELN}\n\nHEUTE IST ${heute}.\n${seitenHinweis(pfad)}\n\nAKTUELLE DATEN (Stand jetzt):\n${snapshot}`,
+        tools: JARVIS_WERKZEUGE,
+        tool_choice: 'auto',
         audio: {
           input: {
             // Satzende erkennt der Server selbst — kein zweiter Mikro-Klick nötig.

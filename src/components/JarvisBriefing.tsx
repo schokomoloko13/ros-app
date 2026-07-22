@@ -1,12 +1,13 @@
 'use client'
 
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-// JARVIS Panel v6 — echtes Sprach-Gespräch.
+// JARVIS Panel v7 — Sprach-Gespräch + Hände (Function Calling).
 // Der Browser hält eine WebRTC-Audioleitung direkt zu OpenAI: Sprache rein,
-// Sprache raus, unterbrechbar. Satzende erkennt der Server, das Tages-Briefing
-// spricht Jarvis von sich aus beim Verbinden.
+// Sprache raus, unterbrechbar. Werkzeuge werden über den DataChannel als
+// function_call ausgelöst, per /api/jarvis/aktion auf dem Server ausgeführt
+// und das Ergebnis über function_call_output zurückgemeldet.
 // Bedienung: Kreis = Gespräch an/aus. Mikro = stumm schalten. Sonst nichts.
 type Zustand = 'aus' | 'verbinde' | 'live' | 'fehler'
 
@@ -15,15 +16,81 @@ export default function JarvisBriefing() {
   const [spricht, setSpricht] = useState(false)
   const [stumm, setStumm] = useState(false)
   const [fehler, setFehler] = useState('')
+  // Kurze Bestätigung nach jeder Schreibaktion — verschwindet nach 5 s.
+  const [toast, setToast] = useState('')
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const pfad = usePathname() || '/'
-  const pcRef = useRef<RTCPeerConnection | null>(null)
+  const router = useRouter()
+  const pfad   = usePathname() || '/'
+  const pcRef    = useRef<RTCPeerConnection | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
-  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const audioRef  = useRef<HTMLAudioElement | null>(null)
+  // DataChannel-Ref, damit handleWerkzeug immer auf den aktuellen Kanal zugreifen kann.
+  const kanalRef  = useRef<RTCDataChannel | null>(null)
 
   const kannSprechen = typeof window !== 'undefined'
     && !!navigator.mediaDevices?.getUserMedia
     && typeof RTCPeerConnection !== 'undefined'
+
+  const zeigeToast = useCallback((text: string) => {
+    setToast(text)
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+    toastTimer.current = setTimeout(() => setToast(''), 5000)
+  }, [])
+
+  // Werkzeug-Aufruf: Jarvis → DataChannel → Server → Supabase → Ergebnis zurück.
+  const handleWerkzeug = useCallback(async (
+    callId: string,
+    name: string,
+    argsStr: string,
+  ) => {
+    let argumente: Record<string, unknown> = {}
+    try { argumente = JSON.parse(argsStr || '{}') } catch { /* egal */ }
+
+    let ergebnis = ''
+    try {
+      const res  = await fetch('/api/jarvis/aktion', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ werkzeug: name, argumente }),
+      })
+      const json = await res.json()
+
+      if (json.treffer !== undefined) {
+        // artikel_suchen → strukturiertes Ergebnis als Text zurückgeben
+        if (!json.treffer.length) {
+          ergebnis = 'Kein Artikel gefunden.'
+        } else {
+          ergebnis = json.treffer
+            .map((t: { id: string; name: string; marke?: string; status: string; zielpreis?: string }) =>
+              `${t.name}${t.marke ? ` (${t.marke})` : ''} — ${t.status}${t.zielpreis ? ` · ${t.zielpreis}` : ''} — ID: ${t.id}`
+            )
+            .join('\n')
+        }
+      } else if (json.ok && json.meldung) {
+        ergebnis = json.meldung
+        // Schreibaktionen: UI aktualisieren und Toast zeigen
+        if (name !== 'artikel_suchen') {
+          router.refresh()
+          zeigeToast(json.meldung)
+        }
+      } else {
+        ergebnis = json.error || 'Unbekannter Fehler.'
+      }
+    } catch (err: unknown) {
+      ergebnis = `Fehler: ${err instanceof Error ? err.message : 'Verbindungsproblem'}`
+    }
+
+    // Ergebnis an Jarvis zurückmelden und nächste Antwort auslösen
+    const kanal = kanalRef.current
+    if (kanal?.readyState === 'open') {
+      kanal.send(JSON.stringify({
+        type: 'conversation.item.create',
+        item: { type: 'function_call_output', call_id: callId, output: ergebnis },
+      }))
+      kanal.send(JSON.stringify({ type: 'response.create' }))
+    }
+  }, [router, zeigeToast])
 
   const aufraeumen = useCallback(() => {
     try { pcRef.current?.close() } catch { /* egal */ }
@@ -32,7 +99,8 @@ export default function JarvisBriefing() {
       audioRef.current.srcObject = null
       audioRef.current = null
     }
-    pcRef.current = null
+    pcRef.current  = null
+    kanalRef.current = null
     streamRef.current = null
     setSpricht(false)
     setStumm(false)
@@ -71,6 +139,7 @@ export default function JarvisBriefing() {
       stream.getTracks().forEach(t => pc.addTrack(t, stream))
 
       const kanal = pc.createDataChannel('oai-events')
+      kanalRef.current = kanal
       // Ohne Anstoß wartet das Modell stumm, bis Roberto etwas sagt — hier soll es
       // aber von sich aus mit dem Tages-Briefing eröffnen.
       kanal.onopen = () => {
@@ -78,9 +147,14 @@ export default function JarvisBriefing() {
       }
       kanal.onmessage = e => {
         try {
-          const typ = JSON.parse(e.data)?.type
+          const msg = JSON.parse(e.data)
+          const typ: string = msg?.type ?? ''
           if (typ === 'output_audio_buffer.started') setSpricht(true)
           if (typ === 'output_audio_buffer.stopped' || typ === 'output_audio_buffer.cleared') setSpricht(false)
+          // Jarvis hat ein Werkzeug aufgerufen — hier ausführen und Ergebnis zurückschicken.
+          if (typ === 'response.function_call_arguments.done') {
+            handleWerkzeug(msg.call_id, msg.name, msg.arguments ?? '{}')
+          }
         } catch { /* egal */ }
       }
 
@@ -147,6 +221,9 @@ export default function JarvisBriefing() {
     <div className="jarvis-float">
       {zustand === 'fehler' && fehler && (
         <span className="jarvis-float-fehler">{fehler}</span>
+      )}
+      {toast && !fehler && (
+        <span className="jarvis-float-toast">{toast}</span>
       )}
 
       {kannSprechen && aktiv && (
