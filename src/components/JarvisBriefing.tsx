@@ -185,7 +185,9 @@ export default function JarvisBriefing() {
       }
       audio.onended = () => finish('played')
       audio.onerror = () => finish('stopped')
-      audio.onpause = () => finish('stopped') // greift beim Stopp per stopAllAudio
+      // Manche Browser feuern am natürlichen Ende erst "pause", dann "ended" —
+      // das ist kein Abbruch. Nur ein Pausieren mitten im Ton beendet die Queue.
+      audio.onpause = () => finish(audio.ended ? 'played' : 'stopped')
       audio.play().then(() => {
         if (speakSeq.current !== seq) { audio.pause(); return }
         setPhase('speaking')
@@ -200,8 +202,12 @@ export default function JarvisBriefing() {
 
     stopAllAudio()
     const mySeq = speakSeq.current
-    // Die alte Queue merkt den Abbruch sofort — kurz auf das Freiwerden der Sperre warten.
-    for (let i = 0; i < 100 && speakLock.current; i++) await sleep(20)
+    // Die alte Queue bricht durch das pausierte Audio sofort ab und gibt die Sperre
+    // frei. Warten, solange wir der neueste Auftrag sind — wer vorzeitig aufgibt,
+    // hinterlässt eine entwertete alte Queue und damit Stille.
+    for (let i = 0; i < 250 && speakLock.current && speakSeq.current === mySeq; i++) {
+      await sleep(20)
+    }
     if (speakSeq.current !== mySeq || speakLock.current) return 'failed'
     speakLock.current = true
 
@@ -297,12 +303,17 @@ export default function JarvisBriefing() {
       const r = await speakSmart(say)
       if (r === 'blocked') {
         setPendingVoice(true)
-        const onGesture = () => {
+        const onGesture = (e: Event) => {
+          // Ein Klick auf den Orb hat seinen eigenen Sprech-Auftrag — sonst starten
+          // zwei Queues gleichzeitig und entwerten sich gegenseitig.
+          const onOrbButton = e.target instanceof Element && e.target.closest('.jarvis-orb')
+          window.removeEventListener('pointerdown', onGesture)
+          window.removeEventListener('keydown', onGesture)
           setPendingVoice(false)
-          speakSmart(textRef.current)
+          if (!onOrbButton) speakSmart(textRef.current)
         }
-        window.addEventListener('pointerdown', onGesture, { once: true })
-        window.addEventListener('keydown', onGesture, { once: true })
+        window.addEventListener('pointerdown', onGesture)
+        window.addEventListener('keydown', onGesture)
       }
     })()
 
