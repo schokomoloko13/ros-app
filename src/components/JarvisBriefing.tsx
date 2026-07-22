@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-// JARVIS Panel — Tages-Briefing (Orb) + freie Konversation (Mikro/Text).
-// Sprachausgabe: Web Speech API. Spracherkennung: Chrome (Web Speech API).
-// Gespräche laufen über /api/jarvis/talk (Gemini + Live-Bestandsdaten).
+// JARVIS Panel v3 —
+// Stimme: Gemini TTS via /api/jarvis/speak (Butler-Stimme), Fallback Browser-Stimme.
+// Auto: 2× täglich (morgens Begrüßung, ab 22 Uhr Tagesrückblick) — Browser-Autoplay
+// wird umschifft, indem Jarvis nötigenfalls auf die erste Berührung wartet.
+// Mikro: kontinuierliches Zuhören, Selbst-Neustart, verständliche Fehlerhinweise.
 type Phase = 'idle' | 'loading' | 'ready' | 'speaking' | 'listening' | 'thinking' | 'error'
 type Msg = { role: 'user' | 'jarvis'; text: string; link?: string | null }
 
@@ -19,16 +21,40 @@ function pickGermanVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice |
   )
 }
 
+const slotNow = (): 'abend' | 'morgen' => (new Date().getHours() >= 22 ? 'abend' : 'morgen')
+const todayStr = () => new Date().toISOString().slice(0, 10)
+
+function hintFor(reason: string): string {
+  switch (reason) {
+    case 'not-allowed':
+    case 'service-not-allowed':
+      return 'Mikrofon blockiert — im Browser auf das Schloss-Symbol tippen → Mikrofon erlauben. Mac: Systemeinstellungen → Datenschutz → Mikrofon → Browser anhaken.'
+    case 'audio-capture':
+      return 'Kein Mikrofon gefunden.'
+    case 'network':
+      return 'Spracherkennung braucht den Chrome-Onlinedienst — Internet oder VPN prüfen.'
+    case 'no-speech':
+      return 'Nichts gehört — direkt nach dem Klick sprechen.'
+    default:
+      return `Mikro-Fehler: ${reason}`
+  }
+}
+
 export default function JarvisBriefing() {
   const [phase, setPhase] = useState<Phase>('idle')
   const [text, setText] = useState('')
-  const [armed, setArmed] = useState(false)
+  const [armed, setArmed] = useState(true)
   const [interim, setInterim] = useState('')
   const [input, setInput] = useState('')
   const [thread, setThread] = useState<Msg[]>([])
+  const [micHint, setMicHint] = useState('')
+  const [pendingVoice, setPendingVoice] = useState(false)
+
   const voiceRef = useRef<SpeechSynthesisVoice | null>(null)
   const recRef = useRef<any>(null)
   const threadRef = useRef<Msg[]>([])
+  const textRef = useRef('')
+  const audioRef = useRef<HTMLAudioElement | null>(null)
 
   const supported = typeof window !== 'undefined' && 'speechSynthesis' in window
   const SR = typeof window !== 'undefined'
@@ -42,14 +68,13 @@ export default function JarvisBriefing() {
     if (v) voiceRef.current = v
   }, [supported])
 
-  useEffect(() => {
-    if (!supported) return
-    loadVoices()
-    window.speechSynthesis.onvoiceschanged = loadVoices
-    setArmed(localStorage.getItem('jarvis-armed') === '1')
-  }, [supported, loadVoices])
+  const stopAllAudio = useCallback(() => {
+    if (supported) window.speechSynthesis.cancel()
+    try { audioRef.current?.pause() } catch { /* egal */ }
+  }, [supported])
 
-  const speak = useCallback((say: string) => {
+  // ── Stimmen ────────────────────────────────────────────────────────────
+  const speakBrowser = useCallback((say: string) => {
     if (!supported || !say) return
     window.speechSynthesis.cancel()
     const u = new SpeechSynthesisUtterance(say)
@@ -63,33 +88,108 @@ export default function JarvisBriefing() {
     window.speechSynthesis.speak(u)
   }, [supported])
 
-  const fetchBriefing = useCallback(async (withVoice: boolean) => {
+  const speakCloud = useCallback(async (say: string): Promise<'played' | 'blocked' | 'failed'> => {
+    try {
+      const res = await fetch('/api/jarvis/speak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: say }),
+      })
+      if (!res.ok) return 'failed'
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const audio = new Audio(url)
+      audioRef.current = audio
+      audio.onended = () => { setPhase('ready'); URL.revokeObjectURL(url) }
+      audio.onerror = () => { setPhase('ready'); URL.revokeObjectURL(url) }
+      await audio.play()
+      setPhase('speaking')
+      return 'played'
+    } catch {
+      return 'blocked'
+    }
+  }, [])
+
+  const speakSmart = useCallback(async (say: string): Promise<'played' | 'blocked' | 'failed'> => {
+    if (!say) return 'failed'
+    stopAllAudio()
+    const r = await speakCloud(say)
+    if (r === 'failed') speakBrowser(say)
+    return r
+  }, [speakCloud, speakBrowser, stopAllAudio])
+
+  // ── Briefing ───────────────────────────────────────────────────────────
+  const fetchBriefing = useCallback(async (slot: 'abend' | 'morgen'): Promise<string> => {
     setPhase('loading')
     try {
-      const res = await fetch('/api/jarvis', { cache: 'no-store' })
+      const res = await fetch(`/api/jarvis${slot === 'abend' ? '?slot=abend' : ''}`, { cache: 'no-store' })
       const data = await res.json()
-      setText(data.text || '')
+      const say = String(data.text || '')
+      textRef.current = say
+      setText(say)
       setPhase('ready')
-      if (withVoice) speak(data.text || '')
+      return say
     } catch {
       setPhase('error')
+      return ''
     }
-  }, [speak])
+  }, [])
 
-  // Beim Öffnen: Text immer holen; Stimme nur, wenn AUTO an ist.
+  const markPlayed = useCallback((slot: string) => {
+    try {
+      localStorage.setItem('jarvis-last', JSON.stringify({ today: todayStr(), slot }))
+    } catch { /* egal */ }
+  }, [])
+
+  // ── Auto-Briefing beim Öffnen (max. 1× pro Slot pro Tag) ───────────────
   useEffect(() => {
-    fetchBriefing(localStorage.getItem('jarvis-armed') === '1')
+    loadVoices()
+    if (supported) window.speechSynthesis.onvoiceschanged = loadVoices
+
+    const storedArm = localStorage.getItem('jarvis-armed')
+    const isArmed = storedArm !== '0' // Standard: AN
+    setArmed(isArmed)
+
+    const slot = slotNow()
+    let due = false
+    if (isArmed) {
+      try {
+        const last = JSON.parse(localStorage.getItem('jarvis-last') || '{}')
+        due = !(last.today === todayStr() && last.slot === slot)
+      } catch {
+        due = true
+      }
+    }
+
+    ;(async () => {
+      const say = await fetchBriefing(slot)
+      if (!due || !say) return
+      markPlayed(slot)
+      const r = await speakSmart(say)
+      if (r === 'blocked') {
+        // Browser erlaubt Ton noch nicht → auf erste Berührung warten
+        setPendingVoice(true)
+        const onGesture = () => {
+          setPendingVoice(false)
+          speakSmart(textRef.current)
+        }
+        window.addEventListener('pointerdown', onGesture, { once: true })
+        window.addEventListener('keydown', onGesture, { once: true })
+      }
+    })()
+
     return () => {
-      if (supported) window.speechSynthesis.cancel()
+      stopAllAudio()
       try { recRef.current?.stop?.() } catch { /* egal */ }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // ── Gespräch ───────────────────────────────────────────────────────────
   const ask = useCallback(async (msg: string) => {
     const clean = msg.trim()
     if (!clean) return
-    if (supported) window.speechSynthesis.cancel()
+    stopAllAudio()
     const history = threadRef.current.slice(-6).map(m => ({
       role: m.role === 'user' ? 'user' : 'model',
       text: m.text,
@@ -112,8 +212,8 @@ export default function JarvisBriefing() {
       const withAnswer = [...threadRef.current, answer]
       threadRef.current = withAnswer
       setThread(withAnswer)
-      speak(data.reply)
       setPhase('ready')
+      speakSmart(data.reply)
     } catch (e: any) {
       const errText = `Entschuldigung, da ist etwas schiefgelaufen: ${e?.message ?? 'unbekannter Fehler'}`
       const withErr = [...threadRef.current, { role: 'jarvis' as const, text: errText }]
@@ -121,20 +221,31 @@ export default function JarvisBriefing() {
       setThread(withErr)
       setPhase('ready')
     }
-  }, [speak, supported])
+  }, [speakSmart, stopAllAudio])
 
   const listen = useCallback(() => {
     if (!canListen) return
-    if (supported) window.speechSynthesis.cancel()
-    try { recRef.current?.stop?.() } catch { /* egal */ }
+    if (phase === 'listening') {
+      try { recRef.current?.stop?.() } catch { /* egal */ }
+      setPhase('ready')
+      return
+    }
+    stopAllAudio()
+    setMicHint('')
     const rec = new SR()
     recRef.current = rec
     rec.lang = 'de-DE'
     rec.interimResults = true
     rec.maxAlternatives = 1
-    rec.continuous = false
+    rec.continuous = true
+
+    let gotFinal = false
+    let retried = false
+    let fatal = false
+
     setInterim('')
     setPhase('listening')
+
     rec.onresult = (ev: any) => {
       let final = ''
       let inter = ''
@@ -145,28 +256,41 @@ export default function JarvisBriefing() {
       }
       setInterim(final || inter)
       if (final) {
+        gotFinal = true
         try { rec.stop() } catch { /* egal */ }
         ask(final)
       }
     }
-    rec.onerror = () => { setPhase('ready'); setInterim('') }
-    rec.onend = () => { setPhase(p => (p === 'listening' ? 'ready' : p)) }
+    rec.onerror = (ev: any) => {
+      const reason = ev?.error || 'unbekannt'
+      setMicHint(hintFor(reason))
+      if (reason === 'not-allowed' || reason === 'service-not-allowed' || reason === 'audio-capture') fatal = true
+    }
+    rec.onend = () => {
+      if (gotFinal) return
+      if (!fatal && !retried) {
+        retried = true
+        try { rec.start(); return } catch { /* durchfallen */ }
+      }
+      setPhase(p => (p === 'listening' ? 'ready' : p))
+    }
     try {
       rec.start()
     } catch {
       setPhase('ready')
     }
-  }, [canListen, supported, ask, SR])
+  }, [canListen, phase, ask, stopAllAudio, SR])
 
+  // ── UI-Aktionen ────────────────────────────────────────────────────────
   const onOrb = () => {
-    if (!supported) return
     if (phase === 'speaking') {
-      window.speechSynthesis.cancel()
+      stopAllAudio()
       setPhase('ready')
       return
     }
-    if (text) speak(text)
-    else fetchBriefing(true)
+    setPendingVoice(false)
+    if (textRef.current) speakSmart(textRef.current)
+    else fetchBriefing(slotNow()).then(say => say && speakSmart(say))
   }
 
   const toggleArm = () => {
@@ -184,7 +308,7 @@ export default function JarvisBriefing() {
           className={`jarvis-orb${phase === 'speaking' ? ' speaking' : ''}${phase === 'loading' ? ' loading' : ''}`}
           onClick={onOrb}
           aria-label={phase === 'speaking' ? 'Jarvis stoppen' : 'Jarvis Briefing abspielen'}
-          title={supported ? (phase === 'speaking' ? 'Stopp' : 'Briefing anhören') : 'Sprachausgabe wird hier nicht unterstützt'}
+          title={phase === 'speaking' ? 'Stopp' : 'Briefing anhören'}
         >
           <span className="jarvis-core" />
         </button>
@@ -212,7 +336,7 @@ export default function JarvisBriefing() {
                 fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.1em',
                 cursor: 'pointer', fontFamily: 'inherit',
               }}
-              title="Beim Öffnen der Seite automatisch begrüßen (Browser kann Ton ohne Klick blockieren)"
+              title="Auto-Briefing: morgens + ab 22 Uhr je 1× pro Tag"
             >
               AUTO {armed ? 'AN' : 'AUS'}
             </button>
@@ -220,8 +344,13 @@ export default function JarvisBriefing() {
           <div style={{ fontSize: '0.8rem', color: '#94a3b8', lineHeight: 1.55 }}>
             {phase === 'loading' && 'Briefing wird zusammengestellt …'}
             {phase === 'error' && 'Briefing konnte nicht geladen werden.'}
-            {phase !== 'loading' && phase !== 'error' && (text || 'Orb antippen für das Tages-Briefing.')}
+            {phase !== 'loading' && phase !== 'error' && (text || 'Orb antippen für das Briefing.')}
           </div>
+          {pendingVoice && (
+            <div className="jarvis-hint" style={{ color: '#f59e0b' }}>
+              Jarvis hat ein Update bereit — einmal irgendwo tippen, dann spreche ich.
+            </div>
+          )}
         </div>
       </div>
 
@@ -257,9 +386,8 @@ export default function JarvisBriefing() {
           <button
             className={`jarvis-mic${phase === 'listening' ? ' listening' : ''}`}
             onClick={listen}
-            disabled={busy && phase !== 'listening'}
             aria-label="Mit Jarvis sprechen"
-            title={phase === 'listening' ? 'Ich höre … (einfach sprechen)' : 'Mikro antippen und sprechen'}
+            title={phase === 'listening' ? 'Ich höre … (tippen zum Stoppen)' : 'Mikro antippen und sprechen'}
           >
             🎙
           </button>
@@ -287,6 +415,9 @@ export default function JarvisBriefing() {
           SENDEN
         </button>
       </div>
+      {micHint && (
+        <div className="jarvis-hint" style={{ color: '#ef4444' }}>{micHint}</div>
+      )}
       {!canListen && (
         <div style={{ fontSize: '0.58rem', color: '#334155', marginTop: '0.35rem' }}>
           Spracheingabe läuft am besten in Chrome — Tippen geht überall.
