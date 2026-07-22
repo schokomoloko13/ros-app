@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// JARVIS Stimme (/api/jarvis/speak) — Text → natürliche Sprache (WAV).
-// Nutzt Gemini TTS über denselben API-Key wie das Gespräch. Liefert
-// audio/wav zurück; der Client spielt es über ein Audio-Element ab.
-// Fällt der Key/das Modell aus, antwortet 502 → Client nutzt Browser-Stimme.
+// JARVIS Stimme v2 (/api/jarvis/speak) — Text → natürliche Sprache (WAV).
+// Akzentfreies Hochdeutsch per Stil-Anweisung. Stimme kommt vom Client
+// (Whitelist) oder aus GEMINI_TTS_VOICE, Standard: Charon.
 export const dynamic = 'force-dynamic'
 
 const TTS_MODEL = process.env.GEMINI_TTS_MODEL ?? 'gemini-2.5-flash-preview-tts'
-const TTS_VOICE = process.env.GEMINI_TTS_VOICE ?? 'Charon'
+const DEFAULT_VOICE = process.env.GEMINI_TTS_VOICE ?? 'Charon'
+const ALLOWED_VOICES = ['Charon', 'Fenrir', 'Orus', 'Kore', 'Algieba']
 
-const STYLE = 'Sprich auf Deutsch, ruhig und souverän, mit der leicht trockenen Würde eines britischen Butlers: '
+const STYLE = 'Sprich klares, akzentfreies Hochdeutsch, ruhig und souverän, mit der leicht trockenen Würde eines britischen Butlers: '
 
 function pcmToWav(pcm: Buffer, sampleRate = 24000): Buffer {
   const header = Buffer.alloc(44)
@@ -17,13 +17,13 @@ function pcmToWav(pcm: Buffer, sampleRate = 24000): Buffer {
   header.writeUInt32LE(36 + pcm.length, 4)
   header.write('WAVE', 8)
   header.write('fmt ', 12)
-  header.writeUInt32LE(16, 16)      // fmt-Blockgröße
-  header.writeUInt16LE(1, 20)       // PCM
-  header.writeUInt16LE(1, 22)       // Mono
+  header.writeUInt32LE(16, 16)
+  header.writeUInt16LE(1, 20)
+  header.writeUInt16LE(1, 22)
   header.writeUInt32LE(sampleRate, 24)
-  header.writeUInt32LE(sampleRate * 2, 28) // Bytes/Sekunde (16-bit Mono)
-  header.writeUInt16LE(2, 32)       // Block-Ausrichtung
-  header.writeUInt16LE(16, 34)      // Bits pro Sample
+  header.writeUInt32LE(sampleRate * 2, 28)
+  header.writeUInt16LE(2, 32)
+  header.writeUInt16LE(16, 34)
   header.write('data', 36)
   header.writeUInt32LE(pcm.length, 40)
   return Buffer.concat([header, pcm])
@@ -44,6 +44,9 @@ export async function POST(req: NextRequest) {
   const text = String(body?.text ?? '').trim().slice(0, 1500)
   if (!text) return NextResponse.json({ error: 'Kein Text.' }, { status: 400 })
 
+  const reqVoice = String(body?.voice ?? '')
+  const voice = ALLOWED_VOICES.includes(reqVoice) ? reqVoice : DEFAULT_VOICE
+
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${TTS_MODEL}:generateContent`,
     {
@@ -54,7 +57,7 @@ export async function POST(req: NextRequest) {
         generationConfig: {
           responseModalities: ['AUDIO'],
           speechConfig: {
-            voiceConfig: { prebuiltVoiceConfig: { voiceName: TTS_VOICE } },
+            voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } },
           },
         },
       }),
