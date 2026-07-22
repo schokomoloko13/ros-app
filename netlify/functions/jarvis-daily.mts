@@ -1,7 +1,6 @@
 // Jarvis Tages-Briefing — läuft jeden Morgen um 07:00 UTC (09:00 CET).
-// Liest Bestand, Ausgaben und Plattform-Signale, lässt GPT-4o-mini
-// ein 2-3-Satz-Briefing auf Deutsch formulieren und speichert es in
-// jarvis_briefings. realtime/route.ts liest es beim nächsten Connect.
+// Liest Bestand und Plattform-Signale, lässt GPT-4o-mini ein Briefing
+// formulieren, speichert es in jarvis_briefings und schickt es per Telegram.
 import { createClient } from '@supabase/supabase-js'
 import type { Config } from '@netlify/functions'
 
@@ -19,15 +18,49 @@ function euro(n: number): string {
   return Number(n).toLocaleString('de-DE', { maximumFractionDigits: 0 })
 }
 
+// Telegram-Nachrichten max. 4096 Zeichen — bei Bedarf am letzten Zeilenumbruch splitten.
+function telegramChunks(text: string, max = 4096): string[] {
+  if (text.length <= max) return [text]
+  const parts: string[] = []
+  let rest = text
+  while (rest.length > max) {
+    let cut = rest.lastIndexOf('\n', max)
+    if (cut <= 0) cut = max
+    parts.push(rest.slice(0, cut))
+    rest = rest.slice(cut).trimStart()
+  }
+  if (rest) parts.push(rest)
+  return parts
+}
+
+// Exportiert damit der Test-Endpoint die gleiche Funktion nutzt.
+export async function sendTelegram(token: string, chatId: string, text: string): Promise<void> {
+  for (const chunk of telegramChunks(text)) {
+    const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ chat_id: chatId, text: chunk }),
+    })
+    if (!r.ok) {
+      const detail = await r.text().catch(() => '')
+      console.error('sendTelegram: Fehler', r.status, detail.slice(0, 200))
+    }
+  }
+}
+
 export default async (): Promise<Response> => {
   const url  = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key  = process.env.SUPABASE_SERVICE_ROLE_KEY
   const oKey = process.env.OPENAI_API_KEY
 
   if (!url || !key || !oKey) {
-    console.error('jarvis-daily: fehlende Umgebungsvariablen')
+    console.error('jarvis-daily: fehlende Pflicht-Env-Vars')
     return new Response('config error', { status: 500 })
   }
+
+  const tgToken  = process.env.TELEGRAM_BOT_TOKEN || ''
+  const tgChatId = process.env.TELEGRAM_CHAT_ID   || ''
+  const telegram  = !!(tgToken && tgChatId)
 
   const supabase = createClient(url, key, {
     auth: { autoRefreshToken: false, persistSession: false },
@@ -35,7 +68,6 @@ export default async (): Promise<Response> => {
 
   const today = new Date().toISOString().slice(0, 10)
 
-  // Bereits generiert? → abbrechen (Idempotenz bei Retry).
   const { data: existing } = await supabase
     .from('jarvis_briefings')
     .select('id')
@@ -61,19 +93,16 @@ export default async (): Promise<Response> => {
 
   const all = items || []
 
-  // Monatszahlen
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()
   const sold       = all.filter(i => i.status === 'sold')
   const monthSales = sold.filter(i => i.sold_at && i.sold_at >= monthStart)
   const monthRev   = monthSales.reduce((s, i) => s + Number(i.sold_price ?? i.target_price ?? 0), 0)
 
-  // Ladenhüter
   const ladenhüter = all
     .filter(i => i.status === 'listed' && days(i.listed_at ?? i.created_at) > 30)
     .sort((a, b) => days(b.listed_at ?? b.created_at) - days(a.listed_at ?? a.created_at))
     .slice(0, 5)
 
-  // Plattform-Signale — neuester Scan pro Artikel
   const latestMetrics = new Map<string, { ka?: any; vinted?: any }>()
   for (const m of metrics || []) {
     if (!m.item_id) continue
@@ -85,16 +114,14 @@ export default async (): Promise<Response> => {
 
   const topByViews = [...latestMetrics.entries()]
     .map(([itemId, m]) => ({
-      name:     all.find(i => i.id === itemId)?.name ?? 'Artikel',
-      views:    (m.ka?.views    || 0) + (m.vinted?.views    || 0),
-      watchers: (m.ka?.watchers || 0) + (m.vinted?.watchers || 0),
-      msgs:     m.ka?.messages || 0,
+      name:  all.find(i => i.id === itemId)?.name ?? 'Artikel',
+      views: (m.ka?.views || 0) + (m.vinted?.views || 0),
+      msgs:  m.ka?.messages || 0,
     }))
     .filter(e => e.views > 0)
     .sort((a, b) => b.views - a.views)
     .slice(0, 4)
 
-  // Viele Beobachter, null Anfragen → Preis zu hoch?
   const beobachtetOhneKontakt = [...latestMetrics.entries()]
     .map(([itemId, m]) => ({
       name:     all.find(i => i.id === itemId)?.name ?? 'Artikel',
@@ -107,7 +134,8 @@ export default async (): Promise<Response> => {
 
   const wartend = all.filter(i => ['purchased', 'checked', 'photographed'].includes(i.status))
 
-  // Kompaktes Daten-Summary für GPT
+  // ── GPT-Briefing ──────────────────────────────────────────────────
+
   const wochentag = new Date().toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })
   const lines = [
     `DATUM: ${wochentag}`,
@@ -124,7 +152,6 @@ export default async (): Promise<Response> => {
       : '',
   ].filter(Boolean).join('\n')
 
-  // GPT-Briefing generieren
   const gptRes = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { Authorization: `Bearer ${oKey}`, 'Content-Type': 'application/json' },
@@ -155,12 +182,23 @@ export default async (): Promise<Response> => {
   const text    = (gptJson.choices?.[0]?.message?.content ?? '').trim()
   if (!text) return new Response('no text from gpt', { status: 500 })
 
+  // ── DB ────────────────────────────────────────────────────────────
+
   const { error } = await supabase.from('jarvis_briefings').insert({ briefing_date: today, text })
   if (error) {
     console.error('jarvis-daily: Supabase Fehler', error.message)
     return new Response('db error', { status: 500 })
   }
 
-  console.log(`jarvis-daily: Briefing ${today} gespeichert — "${text.slice(0, 80)}…"`)
+  // ── Telegram (optional — wenn Vars fehlen, trotzdem OK) ───────────
+
+  if (telegram) {
+    await sendTelegram(tgToken, tgChatId, `R·O·S· Jarvis — ${wochentag}\n\n${text}`)
+    console.log(`jarvis-daily: Telegram gesendet an ${tgChatId}`)
+  } else {
+    console.log('jarvis-daily: Telegram übersprungen (Vars fehlen)')
+  }
+
+  console.log(`jarvis-daily: ${today} — "${text.slice(0, 80)}…"`)
   return new Response('ok', { status: 200 })
 }
