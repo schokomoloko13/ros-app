@@ -102,11 +102,58 @@ export function buildExpenses(all: any[]): string {
   return lines.join('\n')
 }
 
+function buildPlatformSignals(metrics: any[], items: any[]): string {
+  if (!metrics.length) return ''
+
+  // Pro item_id+platform nur den neusten Scan behalten.
+  const latest = new Map<string, any>()
+  for (const m of metrics) {
+    if (!m.item_id) continue
+    const key = `${m.item_id}__${m.platform}`
+    if (!latest.has(key)) latest.set(key, m)
+  }
+  if (!latest.size) return ''
+
+  const nameOf: Record<string, string> = {}
+  for (const it of items) {
+    if (it.id) nameOf[it.id] = it.name ?? it.brand ?? 'Artikel'
+  }
+
+  const byItem = new Map<string, any[]>()
+  for (const m of latest.values()) {
+    const list = byItem.get(m.item_id) || []
+    list.push(m)
+    byItem.set(m.item_id, list)
+  }
+
+  const newestAt = metrics[0]?.scanned_at
+  const scanZeit = newestAt
+    ? new Date(newestAt).toLocaleString('de-DE', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'numeric' })
+    : '?'
+
+  const lines: string[] = [`PLATTFORM-SIGNALE (Scan ${scanZeit}):`]
+  for (const [itemId, plattformen] of byItem) {
+    const name = nameOf[itemId] ?? itemId
+    const parts = plattformen.map(m => {
+      const plat = m.platform === 'kleinanzeigen' ? 'KA' : 'Vinted'
+      const bits: string[] = []
+      if (m.views    != null) bits.push(`${m.views} Aufrufe`)
+      if (m.watchers != null) bits.push(`${m.watchers} ${m.platform === 'vinted' ? 'Fav.' : 'Beob.'}`)
+      if (m.messages != null) bits.push(`${m.messages} Anfragen`)
+      if (m.platform_status && m.platform_status !== 'active')
+        bits.push(m.platform_status === 'paused' ? 'pausiert' : 'verkauft')
+      return `${plat}: ${bits.length ? bits.join(' · ') : 'keine Daten'}`
+    })
+    lines.push(`- ${name} | ${parts.join(' | ')}`)
+  }
+  return lines.join('\n')
+}
+
 export async function loadSnapshot(): Promise<string> {
-  const [items, expenses] = await Promise.all([
+  const [items, expenses, metrics] = await Promise.all([
     supabase
       .from('items')
-      .select('name, brand, status, target_price, sold_price, sold_at, listed_at, purchase_date, created_at')
+      .select('id, name, brand, status, target_price, sold_price, sold_at, listed_at, purchase_date, created_at')
       .order('created_at', { ascending: false })
       .limit(400),
     supabase
@@ -114,6 +161,16 @@ export async function loadSnapshot(): Promise<string> {
       .select('amount, category, note, expense_date')
       .order('expense_date', { ascending: false })
       .limit(400),
+    supabase
+      .from('platform_metrics')
+      .select('item_id, platform, views, watchers, messages, platform_status, scanned_at')
+      .not('item_id', 'is', null)
+      .order('scanned_at', { ascending: false })
+      .limit(400),
   ])
-  return `${buildSnapshot(items.data || [])}\n\n${buildExpenses(expenses.data || [])}`
+
+  const signals = buildPlatformSignals(metrics.data || [], items.data || [])
+  const parts = [buildSnapshot(items.data || []), buildExpenses(expenses.data || [])]
+  if (signals) parts.push(signals)
+  return parts.join('\n\n')
 }
