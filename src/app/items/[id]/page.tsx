@@ -6,7 +6,7 @@ export const revalidate = 30
 import StatusActions from './StatusActions'
 import AiWearPhotoButton from './AiWearPhotoButton'
 import ImageGallery from './ImageGallery'
-import AiAdvisor from './AiAdvisor'
+import WatchPriceCheck from './WatchPriceCheck'
 import CopyListing from './CopyListing'
 import PostToKaButton from './PostToKaButton'
 import EditDetails from './EditDetails'
@@ -242,7 +242,7 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
             </div>
           )}
 
-          <AiAdvisor itemId={item.id} />
+          <WatchPriceCheck itemId={item.id} existingImages={(images || []).filter((img: any) => img.url).map((img: any) => ({ url: img.url }))} />
 
           <div className="panel" style={{ padding: '1.25rem', marginBottom: '1rem' }}>
             <h2 style={{ margin: '0 0 1rem', fontSize: '0.85rem', letterSpacing: '0.08em' }}>
