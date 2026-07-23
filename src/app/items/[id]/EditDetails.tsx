@@ -8,12 +8,19 @@ type Option = { id: string; name: string }
 type FieldDef = {
   key: string
   label: string
-  type: 'text' | 'number' | 'date'
+  type: 'text' | 'number' | 'date' | 'select'
   step?: string
+  min?: string
+  max?: string
+  options?: string[]
   euro?: boolean
   suffix?: string
   color?: string
 }
+
+const SHAPE_OPTIONS = ['Rund', 'Eckig/Rechteckig', 'Tonneau', 'Oval', 'Kissen/Cushion', 'Sonstige']
+const GENDER_OPTIONS = ['Herren', 'Damen', 'Unisex']
+const CURRENT_YEAR = new Date().getFullYear()
 
 const FIELDS: FieldDef[] = [
   { key: 'name',             label: 'Name',          type: 'text' },
@@ -26,7 +33,9 @@ const FIELDS: FieldDef[] = [
   { key: 'purchase_date',    label: 'Kaufdatum',     type: 'date' },
   { key: 'brand',            label: 'Marke',         type: 'text' },
   { key: 'reference_number', label: 'Referenz',      type: 'text' },
-  { key: 'year',             label: 'Baujahr',       type: 'number', step: '1' },
+  { key: 'year',             label: 'Baujahr',       type: 'number', step: '1', min: '1900', max: String(CURRENT_YEAR) },
+  { key: 'shape',            label: 'Form',          type: 'select', options: SHAPE_OPTIONS },
+  { key: 'gender',           label: 'Geschlecht',    type: 'select', options: GENDER_OPTIONS },
   { key: 'color',            label: 'Farbe',         type: 'text' },
   { key: 'size',             label: 'Größe',         type: 'text' },
   { key: 'diameter_mm',      label: 'Ø mm',          type: 'number', step: '1', suffix: 'mm' },
@@ -184,13 +193,26 @@ export default function EditDetails({
           <div key={f.key} style={{ background: '#050a14', border: '1px solid #1e293b', borderRadius: '6px', padding: '0.75rem 1rem' }}>
             <div style={{ fontSize: '0.6rem', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '0.25rem' }}>{f.label}</div>
             {editing ? (
-              <input
-                type={f.type}
-                step={f.step}
-                value={form[f.key] ?? ''}
-                onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))}
-                style={inputStyle}
-              />
+              f.type === 'select' ? (
+                <select
+                  value={form[f.key] ?? ''}
+                  onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))}
+                  style={inputStyle}
+                >
+                  <option value="">—</option>
+                  {(f.options ?? []).map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+              ) : (
+                <input
+                  type={f.type}
+                  step={f.step}
+                  min={f.min}
+                  max={f.max}
+                  value={form[f.key] ?? ''}
+                  onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))}
+                  style={inputStyle}
+                />
+              )
             ) : (
               <div style={{ fontSize: '0.85rem', fontWeight: 600, color: f.color || '#e0f2fe' }}>
                 {fmtValue(f, item[f.key])}

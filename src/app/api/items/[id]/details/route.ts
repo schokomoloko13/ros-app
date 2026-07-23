@@ -12,7 +12,7 @@ const supabase = createClient(
 
 const ALLOWED = new Set([
   'name', 'brand', 'reference_number', 'year', 'color', 'size',
-  'diameter_mm', 'material', 'movement', 'condition_score',
+  'diameter_mm', 'material', 'movement', 'shape', 'gender', 'condition_score',
   'purchase_price', 'target_price', 'min_price',
   // Kaufdatum und echter Verkaufspreis — Basis der /finanzen-Auswertung.
   'purchase_date', 'sold_price', 'sold_at',

@@ -9,6 +9,36 @@ function getAdminClient() {
   return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
 }
 
+// ── Feste Auswahlwerte (Deckungsgleich mit den DB-Check-Constraints) ───────
+
+export const SHAPE_OPTIONS = ['Rund', 'Eckig/Rechteckig', 'Tonneau', 'Oval', 'Kissen/Cushion', 'Sonstige']
+export const GENDER_OPTIONS = ['Herren', 'Damen', 'Unisex']
+
+/** Freitext der KI grob auf einen erlaubten Formwert abbilden ('' = unbekannt). */
+function normalizeShape(raw: string): string {
+  const s = raw.toLowerCase()
+  if (!s) return ''
+  if (SHAPE_OPTIONS.some((o) => o.toLowerCase() === s)) {
+    return SHAPE_OPTIONS.find((o) => o.toLowerCase() === s)!
+  }
+  if (s.includes('rund') || s.includes('round') || s.includes('kreis')) return 'Rund'
+  if (s.includes('tonneau') || s.includes('fass')) return 'Tonneau'
+  if (s.includes('oval')) return 'Oval'
+  if (s.includes('kissen') || s.includes('cushion')) return 'Kissen/Cushion'
+  if (s.includes('eck') || s.includes('recht') || s.includes('square') || s.includes('rectang') || s.includes('quadrat')) return 'Eckig/Rechteckig'
+  return ''
+}
+
+/** Freitext der KI grob auf Herren/Damen/Unisex abbilden ('' = unbekannt). */
+function normalizeGender(raw: string): string {
+  const s = raw.toLowerCase()
+  if (!s) return ''
+  if (s.includes('herr') || s.includes('men') || s.includes('männ') || s.includes('gent')) return 'Herren'
+  if (s.includes('dam') || s.includes('women') || s.includes('lad') || s.includes('frau')) return 'Damen'
+  if (s.includes('uni')) return 'Unisex'
+  return ''
+}
+
 // ── Schritt 1: Uhr aus Fotos erkennen ─────────────────────────────────────
 
 export type WatchDetection = {
@@ -17,6 +47,8 @@ export type WatchDetection = {
   reference: string
   year: string
   caliber: string
+  shape: string // einer aus SHAPE_OPTIONS oder ''
+  gender: string // einer aus GENDER_OPTIONS oder ''
   condition: string
   notable: string
   confidence: number // 0..1
@@ -46,6 +78,8 @@ export async function detectWatch(images: string[]): Promise<DetectResult> {
     '  "reference": "Referenznummer falls lesbar, sonst leer",\n' +
     '  "year": "ungefähres Baujahr/Epoche, sonst leer",\n' +
     '  "caliber": "Kaliber/Uhrwerk falls erkennbar, sonst leer",\n' +
+    '  "shape": "Gehäuseform, EXAKT einer von: Rund, Eckig/Rechteckig, Tonneau, Oval, Kissen/Cushion, Sonstige; sonst leer",\n' +
+    '  "gender": "Zielgruppe, EXAKT einer von: Herren, Damen, Unisex; im Zweifel Unisex",\n' +
     '  "condition": "kurzer Zustandseindruck (z.B. getragen, Kratzer am Glas)",\n' +
     '  "notable": "Besonderheiten (Zifferblattfarbe, Komplikationen, Box/Papiere sichtbar)",\n' +
     '  "confidence": 0.0-1.0,\n' +
@@ -92,6 +126,8 @@ export async function detectWatch(images: string[]): Promise<DetectResult> {
       reference: String(raw.reference ?? '').trim(),
       year: String(raw.year ?? '').trim(),
       caliber: String(raw.caliber ?? '').trim(),
+      shape: normalizeShape(String(raw.shape ?? '').trim()),
+      gender: normalizeGender(String(raw.gender ?? '').trim()),
       condition: String(raw.condition ?? '').trim(),
       notable: String(raw.notable ?? '').trim(),
       confidence: Number.isFinite(raw.confidence) ? Math.max(0, Math.min(1, raw.confidence)) : 0.5,
@@ -287,7 +323,7 @@ export type ApplyResult = { ok: true } | { ok: false; error: string }
 
 export async function applyWatchValues(
   itemId: string,
-  values: { brand?: string; reference?: string; year?: string; caliber?: string; targetPrice?: number | null }
+  values: { brand?: string; reference?: string; year?: string; caliber?: string; shape?: string; gender?: string; targetPrice?: number | null }
 ): Promise<ApplyResult> {
   const supabase = getAdminClient()
   const update: Record<string, unknown> = { updated_at: new Date().toISOString() }
@@ -295,6 +331,11 @@ export async function applyWatchValues(
   if (values.reference) update.reference_number = values.reference
   const yearNum = values.year ? parseInt(values.year.replace(/[^\d]/g, ''), 10) : NaN
   if (Number.isFinite(yearNum) && yearNum > 1800 && yearNum < 2100) update.year = yearNum
+  // Nur gültige Enum-Werte schreiben — sonst schlägt die DB-Check-Constraint an.
+  const shape = values.shape ? normalizeShape(values.shape) : ''
+  if (shape && SHAPE_OPTIONS.includes(shape)) update.shape = shape
+  const gender = values.gender ? normalizeGender(values.gender) : ''
+  if (gender && GENDER_OPTIONS.includes(gender)) update.gender = gender
   // Kaliber grob auf das erlaubte movement-Enum mappen, sonst nicht anfassen.
   if (values.caliber) {
     const lc = values.caliber.toLowerCase()

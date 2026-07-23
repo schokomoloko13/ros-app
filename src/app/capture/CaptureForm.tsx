@@ -13,6 +13,9 @@ type Option = { id: string; name: string; icon?: string }
 type AiStatus = 'idle' | 'loading' | 'done' | 'error'
 
 const MOVEMENT_OPTIONS = ['Automatik', 'Handaufzug', 'Quartz', 'Elektronisch', 'Sonstiges']
+const SHAPE_OPTIONS = ['Rund', 'Eckig/Rechteckig', 'Tonneau', 'Oval', 'Kissen/Cushion', 'Sonstige']
+const GENDER_OPTIONS = ['Herren', 'Damen', 'Unisex']
+const CURRENT_YEAR = new Date().getFullYear()
 
 const CONDITION_OPTIONS = [
   { value: 1,  label: '1 — Defekt / nicht funktionsfähig' },
@@ -27,9 +30,10 @@ const CONDITION_OPTIONS = [
   { value: 10, label: '10 — Neuwertig / ungetragen' },
 ]
 
-const CTX_KEYS = ['name','brand','reference_number','year','color','size','diameter_mm','material','movement','condition_score','notes'] as const
+const CTX_KEYS = ['name','brand','reference_number','year','shape','gender','color','size','diameter_mm','material','movement','condition_score','notes'] as const
 const CTX_LABEL: Record<string, string> = {
   name: 'artikel', brand: 'marke', reference_number: 'ref', year: 'bj',
+  shape: 'form', gender: 'geschlecht',
   color: 'farbe', size: 'größe', diameter_mm: 'ø', material: 'material',
   movement: 'uhrwerk', condition_score: 'zustand', notes: 'notizen',
 }
@@ -361,7 +365,7 @@ export default function CaptureForm({
       <div className="r-fields-3">
         <div>
           <label className="form-label">Baujahr <Opt /></label>
-          <input name="year" type="number" min="1800" max="2099" className="form-input" placeholder="z.B. 1968" />
+          <input name="year" type="number" min="1900" max={CURRENT_YEAR} step="1" className="form-input" placeholder="z.B. 1968" />
         </div>
         <div>
           <label className="form-label">Farbe <Opt /></label>
@@ -390,6 +394,22 @@ export default function CaptureForm({
           <select name="condition_score" className="form-input" defaultValue="">
             <option value="">— wählen —</option>
             {CONDITION_OPTIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div className="r-fields-2">
+        <div>
+          <label className="form-label">Form <Opt /></label>
+          <select name="shape" className="form-input" defaultValue="">
+            <option value="">— wählen —</option>
+            {SHAPE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="form-label">Geschlecht <Opt /></label>
+          <select name="gender" className="form-input" defaultValue="Unisex">
+            {GENDER_OPTIONS.map(g => <option key={g} value={g}>{g}</option>)}
           </select>
         </div>
       </div>

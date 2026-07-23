@@ -17,6 +17,8 @@ export async function generateListingText(
     ctx.brand            && `Marke: ${ctx.brand}`,
     ctx.reference_number && `Referenz: ${ctx.reference_number}`,
     ctx.year             && `Baujahr: ${ctx.year}`,
+    ctx.gender           && `Geschlecht: ${ctx.gender}`,
+    ctx.shape            && `Gehäuseform: ${ctx.shape}`,
     ctx.color            && `Farbe: ${ctx.color}`,
     ctx.size             && `Größe: ${ctx.size}`,
     ctx.diameter_mm      && `Durchmesser: ${ctx.diameter_mm}mm`,
@@ -42,7 +44,10 @@ export async function generateListingText(
             content:
               'Du bist ein Experte für Resale-Inserate auf Kleinanzeigen und Vinted. ' +
               'Schreibe präzise, seriöse, deutschsprachige Inserat-Texte. ' +
-              'Hebe wichtige Merkmale hervor, nenne den Zustand ehrlich. Keine Emojis, kein Clickbait.',
+              'Hebe wichtige Merkmale hervor, nenne den Zustand ehrlich. Keine Emojis, kein Clickbait. ' +
+              'Wenn ein Geschlecht angegeben ist, formuliere passend (z.B. "Damenarmbanduhr", ' +
+              '"Herrenuhr"; bei Unisex neutral). Wenn eine Gehäuseform angegeben ist, erwähne sie ' +
+              'natürlich im Text (z.B. "eckiges Gehäuse", "Tonneau-Form").',
           },
           {
             role: 'user',

@@ -110,6 +110,21 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
               {item.brand} {item.reference_number && `· Ref. ${item.reference_number}`}
             </div>
           )}
+          {(item.shape || item.year || item.gender) && (
+            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.6rem' }}>
+              {[item.gender, item.shape, item.year ? String(item.year) : null]
+                .filter(Boolean)
+                .map((chip: string) => (
+                  <span key={chip} style={{
+                    fontSize: '0.6rem', color: '#94a3b8', background: '#0a1424',
+                    border: '1px solid #1e293b', borderRadius: '4px',
+                    padding: '0.2rem 0.55rem', letterSpacing: '0.06em',
+                  }}>
+                    {chip}
+                  </span>
+                ))}
+            </div>
+          )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
           {needsRelist && (

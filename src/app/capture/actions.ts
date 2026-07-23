@@ -43,6 +43,8 @@ export async function captureItem(formData: FormData): Promise<CaptureResult> {
   const diameterMm      = diameterRaw ? parseFloat(diameterRaw) : null
   const material        = (formData.get('material') as string)?.trim() || null
   const movement        = (formData.get('movement') as string) || null
+  const shape           = (formData.get('shape') as string) || null
+  const gender          = (formData.get('gender') as string) || null
   const conditionRaw    = formData.get('condition_score') as string
   const conditionScore  = conditionRaw ? parseInt(conditionRaw) : null
   const purchaseDateRaw = (formData.get('purchase_date') as string) || ''
@@ -73,6 +75,8 @@ export async function captureItem(formData: FormData): Promise<CaptureResult> {
       diameter_mm:     diameterMm,
       material,
       movement,
+      shape,
+      gender,
       condition_score: conditionScore,
       notes,
       listing_title:       listingTitle,

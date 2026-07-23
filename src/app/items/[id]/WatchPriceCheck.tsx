@@ -5,6 +5,8 @@ import {
   detectWatch,
   researchPrice,
   applyWatchValues,
+  SHAPE_OPTIONS,
+  GENDER_OPTIONS,
   type WatchDetection,
   type PriceResearch,
 } from './watchPrice'
@@ -117,6 +119,8 @@ export default function WatchPriceCheck({
       reference: detection.reference,
       year: detection.year,
       caliber: detection.caliber,
+      shape: detection.shape,
+      gender: detection.gender,
       targetPrice: research?.soldMedian ?? null,
     })
     if (res.ok) setApplied(true)
@@ -246,6 +250,21 @@ export default function WatchPriceCheck({
                 />
               </div>
             ))}
+
+            <div>
+              <label style={labelStyle}>Form</label>
+              <select style={inputStyle} value={detection.shape} onChange={(e) => editField('shape', e.target.value)}>
+                <option value="">—</option>
+                {SHAPE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Geschlecht</label>
+              <select style={inputStyle} value={detection.gender} onChange={(e) => editField('gender', e.target.value)}>
+                <option value="">—</option>
+                {GENDER_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
           </div>
 
           <button onClick={runResearch} style={primaryBtn}>
